@@ -1,0 +1,6 @@
+{
+  "name": "Narrative Operating System",
+  "description": "A persistent narrative intelligence platform with 12 core engines: character state vectors, memory vaults, consequence pipelines, plot thread tracking, setup & payoff queues, intersection matrices, structure intelligence, writer's room AI board, and off-screen universe simulation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
