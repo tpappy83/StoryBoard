@@ -1,310 +1,378 @@
 import React from 'react';
-import {
-  Sliders,
-  Play,
-  RotateCcw,
-  Sparkles,
+import { Download,
   ShieldCheck,
-  Search,
-  Grid,
-  Layers,
-  Users,
-  GitMerge,
-  BookOpen,
-  Volume2,
-  VolumeX,
-  AlertTriangle,
-  FolderKanban,
-  Brain,
   Zap,
-  Shuffle,
-  Film,
-  Radio,
+  BookOpen,
+  Clapperboard,
+  GitBranch,
+  Globe,
+  Users,
+  Brain,
+  Bot,
+  Sparkles,
+  History,
   Cpu,
-  Compass,
-  HelpCircle
+  FileText,
+  HelpCircle,
+  Menu,
+  Activity,
+  Compass
 } from 'lucide-react';
-import { PresetMode, ProjectMetadata } from '../types';
+import { WorkspaceMode, ProjectMetadata } from '../types';
+import { ThreeDotActionsBar } from './ThreeDotActionsBar';
+import { AppMenu } from './AppMenu';
+
+import { Scene, Character, PlotThread, CanonFact, SetupPayoffEvent, SelectedNarrativeObject, SceneProposal } from '../types';
+import { generateProjectPDF } from '../lib/pdfExportService';
+import { generateProjectDOCX } from '../lib/docxExportService';
+
+import { auth } from '../firebase';
+import { signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
+
 
 interface HeaderTransportProps {
+  scenes?: Scene[];
+  proposals?: SceneProposal[];
+  scene?: Scene;
+  characters?: Character[];
+  plotThreads?: PlotThread[];
+  canonFacts?: CanonFact[];
+  setups?: SetupPayoffEvent[];
+  payoffs?: any[];
+  selectedObject?: SelectedNarrativeObject | null;
+  onClearSelection?: () => void;
+  onSelectCharacter?: (id: string) => void;
   project: ProjectMetadata;
-  activePreset: PresetMode;
-  setActivePreset: (mode: PresetMode) => void;
+  activeWorkspace: WorkspaceMode;
+  setActiveWorkspace: (mode: WorkspaceMode) => void;
   continuityScore: number;
   canonCount: number;
   violationCount: number;
   aiStatus: 'READY' | 'PROPOSING' | 'VALIDATING';
   onRunAudit: () => void;
   onOpenAiDrawer: () => void;
-  soundEnabled: boolean;
-  setSoundEnabled: (val: boolean) => void;
+  onOpenChat?: () => void;
+  onOpenKeepWorkspace?: () => void;
+  onOpenAuditTrail?: () => void;
+  onOpenTestHarness?: () => void;
+  soundEnabled?: boolean;
+  setSoundEnabled?: (val: boolean) => void;
   onOpenTutorial?: () => void;
-}
+  user?: User | null;
+  onToggleNavigator?: () => void;
+  }
 
 export const HeaderTransport: React.FC<HeaderTransportProps> = ({
+  user,
+
   project,
-  activePreset,
-  setActivePreset,
+  activeWorkspace,
+  setActiveWorkspace,
   continuityScore,
   canonCount,
   violationCount,
   aiStatus,
   onRunAudit,
   onOpenAiDrawer,
-  soundEnabled,
-  setSoundEnabled,
+  onOpenChat,
+  onOpenKeepWorkspace,
+  onOpenAuditTrail,
+  onOpenTestHarness,
   onOpenTutorial,
+  onToggleNavigator,
+  scenes,
+  proposals,
+  scene,
+  characters,
+  plotThreads,
+  canonFacts,
+  setups,
+  payoffs,
+  selectedObject,
+  onClearSelection,
+  onSelectCharacter
 }) => {
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return 'text-emerald-400 bg-emerald-950/50 border-emerald-800';
-    if (score >= 75) return 'text-amber-400 bg-amber-950/50 border-amber-800';
-    return 'text-rose-400 bg-rose-950/50 border-rose-800';
+
+  const handleAuth = async () => {
+    if (user) {
+      await signOut(auth);
+    } else {
+      const provider = new GoogleAuthProvider();
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (err) {
+        console.error("Login failed", err);
+      }
+    }
   };
 
+
+    const handleExportPDF = () => {
+    try {
+      generateProjectPDF({
+        project,
+        scenes,
+        proposals,
+        characters
+      });
+    } catch (err) {
+      console.error("Failed to export PDF", err);
+      alert("Failed to export PDF.");
+    }
+  };
+
+  const handleExportDOCX = async () => {
+    try {
+      await generateProjectDOCX({
+        project,
+        scenes,
+        proposals,
+        characters
+      });
+    } catch (err) {
+      console.error("Failed to export DOCX", err);
+      alert("Failed to export DOCX.");
+    }
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 90) return 'text-emerald-400 bg-[#000000] border-emerald-500/50 hover:bg-[#0A2A43]';
+    if (score >= 75) return 'text-[#F2C94C] bg-[#000000] border-[#F2C94C]/50 hover:bg-[#0A2A43]';
+    return 'text-rose-400 bg-[#000000] border-rose-500/50 hover:bg-[#0A2A43]';
+  };
+
+  
+
+  // Workstation button definitions
+  const workstations: {
+    id: WorkspaceMode | 'ADVISORY';
+    label: string;
+    icon: React.ReactNode;
+    onClick?: () => void;
+  }[] = [
+    {
+      id: 'PLANNING',
+      label: 'Navigator',
+      icon: <Compass className="w-3.5 h-3.5" />,
+      onClick: () => {
+        if (onToggleNavigator) onToggleNavigator();
+        setActiveWorkspace('PLANNING');
+      }
+    },
+    {
+      id: 'WRITING_STUDIO',
+      label: 'Writing Studio',
+      icon: <Clapperboard className="w-3.5 h-3.5 text-[#F2C94C]" />,
+      onClick: () => setActiveWorkspace('WRITING_STUDIO')
+    },
+    {
+      id: 'SIMULATION',
+      label: 'Timeline',
+      icon: <GitBranch className="w-3.5 h-3.5" />,
+      onClick: () => setActiveWorkspace('SIMULATION')
+    },
+    {
+      id: 'CHARACTER',
+      label: 'Relationship Web',
+      icon: <Users className="w-3.5 h-3.5" />,
+      onClick: () => setActiveWorkspace('CHARACTER')
+    },
+    {
+      id: 'WORLDBUILDING',
+      label: 'Canon Vault',
+      icon: <Globe className="w-3.5 h-3.5" />,
+      onClick: () => setActiveWorkspace('WORLDBUILDING')
+    },
+    {
+      id: 'ADVISORY',
+      label: 'Advisory Council',
+      icon: <Sparkles className="w-3.5 h-3.5 text-[#F2C94C]" />,
+      onClick: () => setActiveWorkspace('CUSTOM') // assuming ADVISORY maps to CUSTOM since there is no ADVISORY workspace mode
+    },
+    {
+      id: 'CONTINUITY',
+      label: 'Continuity Center',
+      icon: <ShieldCheck className="w-3.5 h-3.5" />,
+      onClick: () => setActiveWorkspace('CONTINUITY')
+    }
+  ];
+
   return (
-    <header className="bg-[#141B2D] border-b border-[#1A2338] px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-40 shadow-lg">
-      {/* Brand & Project Info */}
+    <header className="bg-[#0A2A43] border-b border-[#153B5C] px-3 py-2 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-40 shadow-xl font-mono text-xs select-none">
+      {/* Brand & Project Metadata */}
       <div className="flex items-center space-x-3">
-        <div className="flex items-center space-x-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-3 py-1.5 rounded-lg shadow-md font-bold tracking-wide text-sm">
-          <Sliders className="w-4 h-4 animate-pulse" />
-          <span>NARRATIVE OS</span>
-          <span className="text-[10px] bg-black/30 px-1.5 py-0.5 rounded text-indigo-200">v2.0 OS</span>
-        </div>
-
-        <div className="hidden lg:block border-l border-slate-700/60 pl-3">
-          <h1 className="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
-            {project.title}
-            <span className="text-xs font-normal text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/40">
-              {project.genre}
-            </span>
-          </h1>
-          <p className="text-[11px] text-slate-400 truncate max-w-xs">{project.tagline}</p>
-        </div>
-      </div>
-
-      {/* Preset Switcher Tabs */}
-      <div className="flex flex-wrap items-center bg-[#0B1020] p-1 rounded-lg border border-[#1A2338] text-xs font-medium gap-1">
-        <button
-          onClick={() => setActivePreset('WRITING')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'WRITING'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="Scene Editor & Character Context"
-        >
-          <BookOpen className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">WRITING</span>
-        </button>
-
-        <button
-          onClick={() => setActivePreset('STATE_ENGINE')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'STATE_ENGINE'
-              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm font-bold'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="Dynamic Narrative State Engine & Simulation Directive"
-        >
-          <Cpu className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-          <span className="hidden sm:inline">STATE ENGINE</span>
-        </button>
-
-        <button
-          onClick={() => setActivePreset('WRITERS_ROOM')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'WRITERS_ROOM'
-              ? 'bg-indigo-600 text-white shadow-sm font-bold'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="Writer's Room AI Advisory Board"
-        >
-          <Brain className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="hidden sm:inline">WRITER'S ROOM</span>
-        </button>
-
-        <button
-          onClick={() => setActivePreset('CONSEQUENCE')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'CONSEQUENCE'
-              ? 'bg-indigo-600 text-white shadow-sm font-bold'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="Narrative Consequence & Memory Engine"
-        >
-          <Zap className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="hidden sm:inline">CONSEQUENCE</span>
-        </button>
-
-        <button
-          onClick={() => setActivePreset('INTERSECTION')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'INTERSECTION'
-              ? 'bg-indigo-600 text-white shadow-sm font-bold'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="Crash/Magnolia Intersection Engine"
-        >
-          <Shuffle className="w-3.5 h-3.5 text-purple-400" />
-          <span className="hidden sm:inline">INTERSECTION</span>
-        </button>
-
-        <button
-          onClick={() => setActivePreset('STRUCTURE')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'STRUCTURE'
-              ? 'bg-indigo-600 text-white shadow-sm font-bold'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="Story Structure Intelligence"
-        >
-          <Film className="w-3.5 h-3.5 text-sky-400" />
-          <span className="hidden sm:inline">STRUCTURE</span>
-        </button>
-
-        <button
-          onClick={() => setActivePreset('OFFSCREEN_SIM')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'OFFSCREEN_SIM'
-              ? 'bg-indigo-600 text-white shadow-sm font-bold'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="Story Universe Background Simulator"
-        >
-          <Radio className="w-3.5 h-3.5 text-rose-400" />
-          <span className="hidden sm:inline">OFF-SCREEN SIM</span>
-        </button>
-
-        <button
-          onClick={() => setActivePreset('CHARACTER')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'CHARACTER'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="Character Intelligence & Relationship Web"
-        >
-          <Users className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">CHARACTERS</span>
-        </button>
-
-        <button
-          onClick={() => setActivePreset('CONTINUITY')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'CONTINUITY'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="Canon Vault & Violations Ledger"
-        >
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">CONTINUITY</span>
-        </button>
-
-        <button
-          onClick={() => setActivePreset('PLANNING')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'PLANNING'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="Timeline Observatory & Plot Threads"
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">TIMELINE</span>
-        </button>
-
-        <button
-          onClick={() => setActivePreset('MPC_GRID')}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all ${
-            activePreset === 'MPC_GRID'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-[#141B2D]'
-          }`}
-          title="16-Pad MPC Scene Sequencer"
-        >
-          <Grid className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">MPC PADS</span>
-        </button>
-      </div>
-
-      {/* DAW Performance Meters & Action Controls */}
-
-      {/* DAW Performance Meters & Action Controls */}
-      <div className="flex items-center space-x-3 text-xs">
-        {/* Continuity Meter */}
-        <div className={`flex items-center space-x-2 px-2.5 py-1 rounded-md border text-xs font-mono font-bold ${getScoreColor(continuityScore)}`}>
-          <ShieldCheck className="w-4 h-4" />
-          <div>
-            <div className="text-[9px] uppercase tracking-wider text-slate-400 font-sans font-normal">CONTINUITY</div>
-            <div>{continuityScore}%</div>
-          </div>
-        </div>
-
-        {/* Violations Meter */}
-        <div
-          onClick={() => setActivePreset('CONTINUITY')}
-          className={`cursor-pointer flex items-center space-x-1.5 px-2.5 py-1 rounded-md border font-mono font-bold ${
-            violationCount > 0
-              ? 'bg-amber-950/60 border-amber-800/80 text-amber-400 hover:bg-amber-900/60'
-              : 'bg-emerald-950/40 border-emerald-900/60 text-emerald-400'
-          }`}
-        >
-          <AlertTriangle className="w-3.5 h-3.5" />
-          <div>
-            <div className="text-[9px] uppercase tracking-wider text-slate-400 font-sans font-normal">ISSUES</div>
-            <div>{violationCount}</div>
-          </div>
-        </div>
-
-        {/* Canon Memory Count */}
-        <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-[#0B1020] border border-[#1A2338] text-slate-300 font-mono">
-          <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-          <div>
-            <div className="text-[9px] uppercase tracking-wider text-slate-400 font-sans font-normal">CANON</div>
-            <div className="font-bold">{canonCount} facts</div>
-          </div>
-        </div>
-
-        {/* Sound Toggle */}
-        <button
-          onClick={() => setSoundEnabled(!soundEnabled)}
-          className="p-1.5 text-slate-400 hover:text-slate-200 bg-[#0B1020] border border-[#1A2338] rounded-md transition-colors"
-          title={soundEnabled ? 'Disable DAW Pad Audio Feedback' : 'Enable DAW Pad Audio Feedback'}
-        >
-          {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4" />}
-        </button>
-
-        {/* Guided Tour / Interactive Tutorial Button */}
-        {onOpenTutorial && (
+        {/* Mobile Navigator Toggle */}
+        {onToggleNavigator && (
           <button
-            onClick={onOpenTutorial}
-            className="flex items-center space-x-1.5 bg-[#0B1020] hover:bg-[#1A2338] text-indigo-300 border border-indigo-500/40 hover:border-indigo-400 px-2.5 py-1.5 rounded-md text-xs font-mono font-bold transition-all shadow-sm"
-            title="Launch Interactive Guided Tutorial with Instruction Bubbles"
+            onClick={onToggleNavigator}
+            className="md:hidden p-1.5 bg-[#000000] text-[#C4C4C4] hover:text-[#F2C94C] border border-[#153B5C] rounded-md transition-all"
+            title="Toggle Navigator"
           >
-            <Compass className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="hidden md:inline">GUIDED TOUR</span>
+            <Menu className="w-4 h-4 text-[#F2C94C]" />
           </button>
         )}
 
-        {/* Run Continuity Audit Button */}
-        <button
-          onClick={onRunAudit}
-          className="flex items-center space-x-1 bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-md border border-slate-700 font-medium transition-colors"
-          title="Run Continuity Audit"
+        <div
+          onClick={() => setActiveWorkspace('WRITING')}
+          className="flex items-center space-x-2 bg-[#000000] text-white px-3 py-1.5 rounded-md border border-[#F2C94C]/40 shadow-md cursor-pointer hover:border-[#F2C94C] transition-all group"
         >
-          <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-          <span className="hidden md:inline">Audit</span>
+          <Activity className="w-4 h-4 text-[#F2C94C] group-hover:rotate-12 transition-transform" />
+          <span className="text-white tracking-widest font-extrabold uppercase text-xs">iNarrator</span>
+          <span className="text-[9px] bg-[#0A2A43] text-[#F2C94C] px-1.5 py-0.5 rounded border border-[#153B5C] font-bold">
+            PRO
+          </span>
+        </div>
+
+        <div className="hidden lg:block border-l border-[#153B5C] pl-3">
+          <h1 className="text-xs font-bold text-white flex items-center gap-2">
+            {project.title}
+            <span className="text-[10px] font-bold text-[#F2C94C] bg-[#000000] px-2 py-0.5 rounded border border-[#153B5C]">
+              {project.genre}
+            </span>
+          </h1>
+          <p className="text-[10px] text-[#C4C4C4] truncate max-w-xs">{project.tagline}</p>
+        </div>
+      </div>
+
+      {/* WORKSTATION BUTTON BAR (RESCALED & ANIMATED) */}
+      <div className="flex flex-wrap items-center bg-[#000000] p-1 rounded-md border border-[#153B5C] gap-1">
+        {workstations.map((ws) => {
+          const isActive = activeWorkspace === ws.id;
+
+          return (
+            <button
+              key={ws.id}
+              onClick={ws.onClick}
+              className={`btn-workstation flex items-center space-x-1.5 px-3 py-1.5 rounded-[5px] text-xs font-bold tracking-tight transition-all duration-150 ${
+                isActive
+                  ? 'bg-[#000000] text-white border-b-2 border-[#F2C94C] shadow-md ring-1 ring-[#153B5C]'
+                  : 'bg-[#0A2A43] text-[#C4C4C4] hover:bg-[#0E3859] hover:text-[#F2C94C] border border-[#153B5C]'
+              }`}
+              title={ws.label}
+            >
+              {ws.icon}
+              <span className="inline">{ws.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* System Quick Controls & ThreeDotActionsBar */}
+      <div className="flex items-center space-x-2">
+        {/* Continuity Health Badge */}
+        <button
+          onClick={() => setActiveWorkspace('CONTINUITY')}
+          className={`flex items-center space-x-1.5 border px-2.5 py-1.5 rounded-md text-xs font-bold transition-all shadow-sm ${getScoreColor(
+            continuityScore
+          )}`}
+          title={`Continuity Health: ${continuityScore}%. Click to open Continuity Center.`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+          <span className="whitespace-nowrap">{continuityScore}% HEALTH</span>
         </button>
 
-        {/* Open AI Proposal Drawer */}
+        {/* Audit Button */}
         <button
-          onClick={onOpenAiDrawer}
-          className="flex items-center space-x-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-3 py-1.5 rounded-md font-semibold shadow-md transition-all animate-pulse hover:animate-none"
+          onClick={onRunAudit}
+          className="bg-[#000000] hover:bg-[#0A2A43] text-[#F2C94C] border border-[#153B5C] hover:border-[#F2C94C] px-2.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center space-x-1.5"
+          title="Run Universe Audit"
         >
-          <Sparkles className="w-4 h-4" />
-          <span className="hidden sm:inline">AI PROPOSE</span>
+          <Zap className="w-3.5 h-3.5 text-[#F2C94C] shrink-0" />
+          <span className="hidden sm:inline">AUDIT</span>
         </button>
+
+        {/* Audit Trail & Sync Ledger */}
+        {onOpenAuditTrail && (
+          <button
+            onClick={onOpenAuditTrail}
+            className="flex items-center space-x-1.5 bg-[#000000] hover:bg-[#0A2A43] text-[#C4C4C4] hover:text-white border border-[#153B5C] px-2.5 py-1.5 rounded-md text-xs font-bold transition-all"
+            title="Open Transaction Audit Trail & Sync Engine"
+          >
+            <History className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span className="hidden md:inline">AUDIT TRAIL</span>
+          </button>
+        )}
+
+        {/* Test Harness */}
+        {onOpenTestHarness && (
+          <button
+            onClick={onOpenTestHarness}
+            className="flex items-center space-x-1.5 bg-[#000000] hover:bg-[#0A2A43] text-rose-300 border border-[#153B5C] px-2.5 py-1.5 rounded-md text-xs font-bold transition-all"
+            title="Open Diagnostics Console"
+          >
+            <Cpu className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+            <span className="hidden lg:inline">DIAGNOSTICS</span>
+          </button>
+        )}
+
+        
+                {/* Export Dropdown */}
+        <div className="relative group">
+          <button
+            className="flex items-center space-x-1.5 bg-[#000000] hover:bg-[#0A2A43] text-purple-400 border border-[#153B5C] px-2.5 py-1.5 rounded-md text-xs font-bold transition-all"
+            title="Export Options"
+          >
+            <Download className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden md:inline">EXPORT</span>
+          </button>
+          
+          <div className="absolute right-0 mt-1 w-32 bg-[#000000] border border-[#153B5C] rounded-md shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto z-50">
+            <button
+              onClick={handleExportPDF}
+              className="block w-full text-left px-3 py-2 text-xs text-purple-400 hover:bg-[#0A2A43] hover:text-white"
+            >
+              Export to PDF
+            </button>
+            <button
+              onClick={handleExportDOCX}
+              className="block w-full text-left px-3 py-2 text-xs text-purple-400 hover:bg-[#0A2A43] hover:text-white"
+            >
+              Export to DOCX
+            </button>
+          </div>
+        </div>
+
+        {/* Google Keep Notes */}
+        {onOpenKeepWorkspace && (
+          <button
+            onClick={onOpenKeepWorkspace}
+            className="flex items-center space-x-1.5 bg-[#000000] hover:bg-[#0A2A43] text-[#F2C94C] border border-[#153B5C] px-2.5 py-1.5 rounded-md text-xs font-bold transition-all"
+            title="Open Keep Notes Workspace"
+          >
+            <FileText className="w-3.5 h-3.5 text-[#F2C94C] shrink-0" />
+            <span className="hidden md:inline">KEEP NOTES</span>
+          </button>
+        )}
+
+        {/* App Main Menu */}
+        <AppMenu />
+
+        {/* Guided Walkthrough */}
+        {onOpenTutorial && (
+          <button
+            onClick={onOpenTutorial}
+            className="p-1.5 bg-[#000000] text-[#C4C4C4] hover:text-white hover:bg-[#0A2A43] border border-[#153B5C] rounded-md transition-all shrink-0"
+            title="System Walkthrough"
+          >
+            <HelpCircle className="w-4 h-4 text-[#F2C94C]" />
+          </button>
+        )}
+
+        {/* THREE-DOT ACTIONS BAR COMPONENT */}
+        <ThreeDotActionsBar
+          onRunAudit={onRunAudit}
+          onOpenAiDrawer={onOpenAiDrawer}
+          onOpenWritingStudio={() => setActiveWorkspace('WRITING_STUDIO')}
+          scene={scene}
+          characters={characters}
+          plotThreads={plotThreads}
+          canonFacts={canonFacts}
+          setups={setups}
+          payoffs={payoffs}
+          selectedObject={selectedObject}
+          onClearSelection={onClearSelection}
+          onSelectCharacter={onSelectCharacter}
+        />
       </div>
     </header>
   );

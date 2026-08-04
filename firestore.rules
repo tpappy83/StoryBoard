@@ -1,44 +1,72 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Global default deny
+    
+    // 1. Global Default Deny
     match /{document=**} {
       allow read, write: if false;
     }
-
+    
+    // 2. Auth Helpers
     function isSignedIn() {
       return request.auth != null;
     }
-
+    
+    // 3. Ownership Helpers
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    
+    function isDocOwner() {
+      return isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+    
+    function isIncomingOwner() {
+      return isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 
-    // User collection
-    match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow create, update: if isOwner(userId)
-        && request.resource.data.keys().hasAll(['uid', 'email'])
-        && request.resource.data.uid == request.auth.uid;
-      allow delete: if false;
-    }
-
-    // Projects collection
+    // 4. Main Projects Collection
+    // Supports both monolithic project records using doc ID = UID, 
+    // and standalone records referencing the user.
     match /projects/{projectId} {
-      allow get: if isSignedIn() && isValidId(projectId) && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(projectId)
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasAll(['id', 'userId', 'title']);
-      allow update: if isSignedIn() && isValidId(projectId)
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && isValidId(projectId) && resource.data.userId == request.auth.uid;
+      allow read, delete: if isOwner(projectId) || isDocOwner();
+      allow create, update: if isOwner(projectId) || isIncomingOwner();
+      
+      // Subcollections within a specific project
+      match /scenes/{sceneId} {
+        allow read, write: if isOwner(projectId);
+      }
+      match /characters/{characterId} {
+        allow read, write: if isOwner(projectId);
+      }
+      match /metadata/{metadataId} {
+        allow read, write: if isOwner(projectId);
+      }
+      match /backups/{backupId} {
+        allow read, write: if isOwner(projectId);
+      }
+    }
+
+    // 5. Standalone / Top-Level Collections (for Agentic Workflows)
+    match /scenes/{sceneId} {
+      allow read, delete: if isDocOwner();
+      allow create, update: if isIncomingOwner();
+    }
+    
+    match /characters/{characterId} {
+      allow read, delete: if isDocOwner();
+      allow create, update: if isIncomingOwner();
+    }
+    
+    match /metadata/{metadataId} {
+      allow read, delete: if isDocOwner();
+      allow create, update: if isIncomingOwner();
+    }
+    
+    match /backups/{backupId} {
+      allow read, delete: if isDocOwner();
+      allow create, update: if isIncomingOwner();
     }
   }
 }

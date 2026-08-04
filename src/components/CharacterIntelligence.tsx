@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Character, CharacterStatus } from '../types';
-import { User, Shield, Key, Target, Heart, Award, Eye, EyeOff, Plus, Edit3, Lock } from 'lucide-react';
+import { User, Shield, Key, Target, Heart, Award, Eye, EyeOff, Plus, Edit3, Lock, Camera } from 'lucide-react';
+
 
 interface CharacterIntelligenceProps {
   characters: Character[];
@@ -18,8 +19,54 @@ export const CharacterIntelligence: React.FC<CharacterIntelligenceProps> = ({
   onAddCharacter
 }) => {
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
   const activeChar = characters.find(c => c.id === selectedCharId) || characters[0];
+
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCapturePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeChar) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize to save Firestore space
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 256;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          setPreviewPhotoUrl(dataUrl);
+        }
+      };
+      if (event.target?.result) {
+        img.src = event.target.result as string;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const toggleSecrets = (charId: string) => {
     setShowSecrets(prev => ({ ...prev, [charId]: !prev[charId] }));
@@ -36,6 +83,46 @@ export const CharacterIntelligence: React.FC<CharacterIntelligenceProps> = ({
   };
 
   return (
+    <>
+
+      {/* Photo Preview Modal */}
+      {previewPhotoUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#141B2D] border border-indigo-500/50 rounded-xl p-6 shadow-2xl max-w-sm w-full flex flex-col items-center text-center space-y-4">
+            <h3 className="text-lg font-bold text-slate-100">Confirm Portrait Update</h3>
+            <p className="text-xs text-slate-400">Are you sure you want to update {activeChar?.name}'s portrait with this image?</p>
+            <div className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-indigo-500/50">
+              <img src={previewPhotoUrl} alt="Preview" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex space-x-3 w-full pt-2">
+              <button
+                onClick={() => {
+                  setPreviewPhotoUrl(null);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                    fileInputRef.current.click();
+                  }
+                }}
+                className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-semibold text-xs transition-colors"
+              >
+                RETAKE
+              </button>
+              <button
+                onClick={() => {
+                  if (activeChar) {
+                    onUpdateCharacter({ ...activeChar, portraitUrl: previewPhotoUrl });
+                  }
+                  setPreviewPhotoUrl(null);
+                }}
+                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs transition-colors"
+              >
+                CONFIRM UPDATE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     <div className="bg-[#141B2D] border border-[#1A2338] rounded-xl p-4 shadow-2xl space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between border-b border-[#1A2338] pb-3 gap-2">
@@ -106,12 +193,26 @@ export const CharacterIntelligence: React.FC<CharacterIntelligenceProps> = ({
             {/* Header / Avatar */}
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#1A2338] pb-3">
               <div className="flex items-center space-x-4">
-                <img
-                  src={activeChar.portraitUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
-                  alt={activeChar.name}
-                  className="w-16 h-16 rounded-xl object-cover border-2 border-indigo-500/60 shadow-lg"
-                />
-                <div>
+                
+                <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                  <img
+                    src={activeChar.portraitUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
+                    alt={activeChar.name}
+                    className="w-16 h-16 rounded-xl object-cover border-2 border-indigo-500/60 shadow-lg group-hover:opacity-75 transition-opacity"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-xl">
+                    <Camera className="w-5 h-5 text-white" />
+                  </div>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="user" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    onChange={handleCapturePhoto} 
+                  />
+                </div>
+<div>
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
                     {activeChar.name}
                     <span className="text-xs font-mono font-normal bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800">
@@ -202,5 +303,6 @@ export const CharacterIntelligence: React.FC<CharacterIntelligenceProps> = ({
         ) : null}
       </div>
     </div>
+    </>
   );
 };

@@ -1,39 +1,29 @@
 {
   "entities": {
-    "User": {
-      "title": "User",
-      "description": "User profile document",
+    "project": {
+      "title": "Project",
+      "description": "A user's narrative project",
       "type": "object",
       "properties": {
-        "uid": { "type": "string" },
-        "email": { "type": "string" },
-        "createdAt": { "type": "string" }
-      },
-      "required": ["uid", "email"]
-    },
-    "NarrativeProject": {
-      "title": "NarrativeProject",
-      "description": "Narrative workspace project",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "title": { "type": "string", "maxLength": 200 },
-        "genre": { "type": "string", "maxLength": 100 },
-        "continuityScore": { "type": "number" },
-        "updatedAt": { "type": "string" }
-      },
-      "required": ["id", "userId", "title"]
+        "project": { "type": "object", "description": "Project metadata" },
+        "characters": { "type": "array", "description": "List of characters" },
+        "relationships": { "type": "array", "description": "List of relationships" },
+        "plotThreads": { "type": "array", "description": "List of plot threads" },
+        "convergenceEvents": { "type": "array", "description": "List of convergence events" },
+        "scenes": { "type": "array", "description": "List of scenes" },
+        "timelineEvents": { "type": "array", "description": "List of timeline events" },
+        "canonFacts": { "type": "array", "description": "List of canon facts" },
+        "violations": { "type": "array", "description": "List of continuity violations" },
+        "structureMilestones": { "type": "array", "description": "List of structure milestones" },
+        "setups": { "type": "array", "description": "List of setups" },
+        "payoffs": { "type": "array", "description": "List of payoffs" }
+      }
     }
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": "User",
-      "description": "User profile"
-    },
-    "/projects/{projectId}": {
-      "schema": "NarrativeProject",
-      "description": "User narrative projects"
+    "/projects/{userId}": {
+      "schema": { "$ref": "#/entities/project" },
+      "description": "User's projects"
     }
   }
 }

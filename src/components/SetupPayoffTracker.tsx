@@ -765,7 +765,7 @@ export const SetupPayoffTracker: React.FC<SetupPayoffTrackerProps> = ({
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {payoffs.map(payoff => {
-              const linkedSetups = setups.filter(s => payoff.setupIds.includes(s.id));
+              const linkedSetups = setups.filter(s => (payoff.setupIds || []).includes(s.id));
 
               return (
                 <div key={payoff.id} className="p-4 rounded-xl border border-emerald-500/30 bg-[#1E293B]/70 space-y-3 relative group shadow-lg">

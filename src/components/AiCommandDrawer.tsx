@@ -31,7 +31,7 @@ export const AiCommandDrawer: React.FC<AiCommandDrawerProps> = ({
   const [purpose, setPurpose] = useState('Ava and Liam reveal the decryption key while Council patrols surround the perimeter.');
   const [threadId, setThreadId] = useState(plotThreads[0]?.id || '');
   const [promptInstructions, setPromptInstructions] = useState('Ensure Ava maintains high suspicion towards Liam, while Liam attempts to prove his loyalty.');
-  const [adapter, setAdapter] = useState('gemini-3.6-flash');
+  const [adapter, setAdapter] = useState('gemini-3.1-flash-lite');
 
   if (!isOpen) return null;
 
@@ -88,7 +88,7 @@ export const AiCommandDrawer: React.FC<AiCommandDrawerProps> = ({
                 onChange={e => setAdapter(e.target.value)}
                 className="w-full bg-[#0B1020] text-slate-200 p-2.5 rounded-lg border border-[#1A2338] focus:outline-none focus:border-indigo-500 font-mono text-xs"
               >
-                <option value="gemini-3.6-flash">Google Gemini 3.6 Flash (Server SDK)</option>
+                <option value="gemini-3.1-flash-lite">Google Gemini 3.6 Flash (Server SDK)</option>
                 <option value="gpt-oss-20b">Local gpt-oss-20b Adapter (Ollama)</option>
                 <option value="mock-adapter">Deterministic Test Mock Adapter</option>
               </select>

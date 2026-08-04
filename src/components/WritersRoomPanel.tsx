@@ -51,10 +51,8 @@ export const WritersRoomPanel: React.FC<WritersRoomPanelProps> = ({
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'CRITICAL' | 'ATTENTION' | 'OPTIMAL'>('ALL');
 
   // Overall Board State
-  const [overallHealthScore, setOverallHealthScore] = useState<number>(82);
-  const [consensusSummary, setConsensusSummary] = useState<string>(
-    'The Advisory Board agrees that Act 1 transition into Act 2 is structural and grounded in lore, but recommends re-engaging the dormant Ryder Family Legacy thread before Chapter 3 climax.'
-  );
+  const [overallHealthScore, setOverallHealthScore] = useState<number>(0);
+  const [consensusSummary, setConsensusSummary] = useState<string>('Run a consultation to receive an AI analysis.');
 
   // Active Directive Apply Modal
   const [applyingDirective, setApplyingDirective] = useState<{
@@ -69,56 +67,7 @@ export const WritersRoomPanel: React.FC<WritersRoomPanelProps> = ({
   } | null>(null);
 
   // Initial Multi-Agent Feedbacks
-  const [feedbacks, setFeedbacks] = useState<AgentFeedback[]>([
-    {
-      agentRole: 'Story Architect',
-      score: 88,
-      statusFlag: 'OPTIMAL',
-      assessment: 'Act 1 tension builds at a steady 1.33 ratio. Scene pacing correctly establishes high stakes without premature climax.',
-      suggestions: [
-        'Ensure the midpoint shift at Elevator Shaft 09 forces a point-of-no-return decision.',
-        'Accelerate the transition into the Act 2 confrontation.'
-      ]
-    },
-    {
-      agentRole: 'Character Psychologist',
-      score: 79,
-      statusFlag: 'ATTENTION',
-      assessment: 'Ava’s trust vector toward Liam (88%) is currently high, but her fear score (35%) creates a latent vulnerability.',
-      suggestions: [
-        'Incorporate subtle non-verbal hesitations when Ava hands over the Helios decryption key.',
-        'Contrast Rowan’s cold utilitarian logic against Ava’s visceral loyalty.'
-      ]
-    },
-    {
-      agentRole: 'Lore Guardian',
-      score: 95,
-      statusFlag: 'OPTIMAL',
-      assessment: 'Decryption key mechanics match Canon Fact #1. Plasma pulse signatures are consistent with Sector 4 lore.',
-      suggestions: [
-        'Verify atmospheric pressure limits when transition occurs in subterranean vaults.'
-      ]
-    },
-    {
-      agentRole: 'Plot Engineer',
-      score: 72,
-      statusFlag: 'ATTENTION',
-      assessment: 'Plot thread "Ryder Family Legacy" has been dormant for 3 chapters. Stale threshold approaching.',
-      suggestions: [
-        'Trigger a setup item (Dr. Elena Ryder’s secret journal) in the next scene to re-engage the bloodline arc.',
-        'Link the Helios core activation directly to the family resonance frequency.'
-      ]
-    },
-    {
-      agentRole: 'Continuity Inspector',
-      score: 65,
-      statusFlag: 'CRITICAL',
-      assessment: 'Liam Cross transit paradox detected between Chapter 2 surface elevator and Chapter 3 Spire infiltration.',
-      suggestions: [
-        'Insert 8-hour transit interval or relocate Spire communications terminal to surface relay node.'
-      ]
-    }
-  ]);
+  const [feedbacks, setFeedbacks] = useState<AgentFeedback[]>([]);
 
   const handleRunConsultation = async (customPrompt?: string) => {
     setIsLoading(true);
@@ -142,9 +91,12 @@ export const WritersRoomPanel: React.FC<WritersRoomPanelProps> = ({
         setFeedbacks(data.feedbacks);
         if (data.consensusSummary) setConsensusSummary(data.consensusSummary);
         if (data.overallHealthScore) setOverallHealthScore(data.overallHealthScore);
+      } else {
+        setConsensusSummary(data.error || "Failed to generate AI consultation.");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Writers room AI failed:', e);
+      setConsensusSummary('An error occurred: ' + e.message);
     } finally {
       setIsLoading(false);
     }
@@ -280,9 +232,9 @@ export const WritersRoomPanel: React.FC<WritersRoomPanelProps> = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-100 flex items-center gap-2 font-mono">
-              <span>WRITER'S ROOM AI ADVISORY BOARD</span>
+              <span>NARRATIVE ADVISORY COUNCIL</span>
               <span className="px-2 py-0.5 text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 rounded-full font-sans font-bold">
-                5-Agent Consensus Workstation
+                5-Agent Intelligence Council
               </span>
             </h2>
             <p className="text-xs text-slate-400">

@@ -37,6 +37,16 @@ export interface CharacterMemory {
 }
 
 export interface Character {
+  createdAt?: string;
+  updatedAt?: string;
+  demographics?: {
+    age?: number | string;
+    gender?: string;
+    ethnicity?: string;
+  };
+  notes?: string;
+  summary?: string;
+  firstAppearanceSceneId?: string;
   id: string;
   name: string;
   role: CharacterRole;
@@ -72,11 +82,18 @@ export interface Relationship {
   trustScore: number; // -100 to 100
   intensity: number; // 1 to 10
   history: string;
+  historyLog?: { date: string; trustScore: number; note: string }[];
 }
 
 export type SceneStatus = 'Drafted' | 'Approved' | 'Pending' | 'Violation' | 'Convergence';
 
 export interface Scene {
+  createdAt?: string;
+  updatedAt?: string;
+  order?: number;
+  notes?: string;
+  charactersReferenced?: string[];
+  fullContent?: string;
   id: string;
   chapter: number;
   padIndex: number; // 1 to 16
@@ -254,20 +271,39 @@ export interface OffscreenSimTick {
   timestamp: string;
 }
 
-export type PresetMode = 
+export type WorkspaceMode = 
   | 'WRITING' 
+  | 'WRITING_STUDIO'
   | 'PLANNING' 
-  | 'CHARACTER' 
   | 'CONTINUITY' 
-  | 'OUTLINING' 
-  | 'REVISION' 
-  | 'MPC_GRID'
-  | 'WRITERS_ROOM'
-  | 'CONSEQUENCE'
-  | 'INTERSECTION'
-  | 'OFFSCREEN_SIM'
-  | 'STRUCTURE'
-  | 'STATE_ENGINE';
+  | 'WORLDBUILDING' 
+  | 'CHARACTER' 
+  | 'SIMULATION' 
+  | 'CUSTOM';
+
+export type PresetMode = WorkspaceMode;
+
+export type NarrativeObjectType = 
+  | 'character' 
+  | 'relationship' 
+  | 'scene' 
+  | 'location' 
+  | 'timeline' 
+  | 'plot_thread' 
+  | 'character_arc' 
+  | 'theme' 
+  | 'canon_fact' 
+  | 'memory' 
+  | 'revision' 
+  | 'setup' 
+  | 'payoff'
+  | 'convergence_event';
+
+export interface SelectedNarrativeObject {
+  type: NarrativeObjectType;
+  id: string;
+  data: any;
+}
 
 export interface CharacterChangeResult {
   charId: string;
@@ -348,6 +384,14 @@ export interface PanelDockState {
 }
 
 export interface ProjectMetadata {
+  createdAt?: string;
+  updatedAt?: string;
+  lastSync?: string;
+  episodeId?: string;
+  currentSceneId?: string;
+  currentCharacterId?: string;
+  autoSaveEnabled?: boolean;
+  autoSyncEnabled?: boolean;
   id: string;
   title: string;
   tagline: string;

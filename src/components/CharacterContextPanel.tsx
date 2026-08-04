@@ -16,7 +16,7 @@ export const CharacterContextPanel: React.FC<CharacterContextPanelProps> = ({
   const [synthesisMap, setSynthesisMap] = useState<Record<string, any>>({});
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
 
-  const participantChars = scene 
+  const participantChars = scene && Array.isArray(scene.participantIds)
     ? characters.filter(c => scene.participantIds.includes(c.id))
     : characters.slice(0, 2);
 

@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { Character, Relationship, RelationshipType } from '../types';
 import { GitCommit, Heart, ShieldAlert, Key, Users, Eye, HelpCircle, RefreshCw } from 'lucide-react';
+import { DropTarget } from './workspace/DropTarget';
+import { DragPayload } from '../stores/workspaceStore';
 
 interface RelationshipWebProps {
   characters: Character[];
   relationships: Relationship[];
   selectedCharId: string | null;
   onSelectCharacter: (charId: string) => void;
-  onAddRelationship: () => void;
+  onAddRelationship: (rel: Omit<Relationship, 'id'>) => void;
+  onUpdateRelationship: (rel: Relationship) => void;
 }
 
 export const RelationshipWeb: React.FC<RelationshipWebProps> = ({
@@ -15,10 +18,15 @@ export const RelationshipWeb: React.FC<RelationshipWebProps> = ({
   relationships,
   selectedCharId,
   onSelectCharacter,
-  onAddRelationship
+  onAddRelationship,
+  onUpdateRelationship
 }) => {
   const [activeTypeFilter, setActiveTypeFilter] = useState<string>('ALL');
   const [selectedRelId, setSelectedRelId] = useState<string | null>(relationships[0]?.id || null);
+  const [isAddingMode, setIsAddingMode] = useState<boolean>(false);
+  const [newRelData, setNewRelData] = useState<Partial<Relationship>>({ type: 'Alliance', intensity: 5, trustScore: 0, history: '' });
+  const [newLogNote, setNewLogNote] = useState('');
+  const [newLogTrust, setNewLogTrust] = useState(0);
 
   // Layout node positions in a dynamic circular grid
   const nodePositions: Record<string, { x: number; y: number }> = {
@@ -100,7 +108,16 @@ export const RelationshipWeb: React.FC<RelationshipWebProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* SVG Canvas */}
-        <div className="lg:col-span-2 bg-[#0B1020] rounded-xl border border-[#1A2338] p-2 relative h-96 flex items-center justify-center overflow-hidden bg-daw-grid">
+        <DropTarget
+          accepts={['character']}
+          label="to Select Character Node"
+          onDrop={(payload: DragPayload) => {
+            if (payload.type === 'character') {
+              onSelectCharacter(payload.id);
+            }
+          }}
+          className="lg:col-span-2 bg-[#0B1020] rounded-xl border border-[#1A2338] p-2 relative h-96 flex items-center justify-center overflow-hidden bg-daw-grid"
+        >
           <svg className="w-full h-full">
             {/* Render Relationship Edges */}
             {filteredRelationships.map(rel => {
@@ -200,21 +217,86 @@ export const RelationshipWeb: React.FC<RelationshipWebProps> = ({
               );
             })}
           </svg>
-        </div>
+        </DropTarget>
 
         {/* Relationship Inspector Panel */}
         <div className="bg-[#0B1020] rounded-xl border border-[#1A2338] p-4 flex flex-col justify-between space-y-3">
+          
           <div>
             <div className="text-xs font-mono text-purple-400 font-bold uppercase tracking-wider mb-2 flex items-center justify-between">
-              <span>RELATIONSHIP INSPECTOR</span>
-              {selectedRel && (
+              <span>{isAddingMode ? 'NEW EDGE CONSTRUCTOR' : 'RELATIONSHIP INSPECTOR'}</span>
+              {!isAddingMode && selectedRel && (
                 <span className="bg-purple-950 text-purple-200 text-[10px] px-2 py-0.5 rounded border border-purple-800 font-bold">
                   INTENSITY {selectedRel.intensity}/10
                 </span>
               )}
             </div>
 
-            {selectedRel && sourceChar && targetChar ? (
+            {isAddingMode ? (
+              <div className="space-y-3 text-xs">
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-[10px] uppercase font-mono">Source Character</label>
+                  <select 
+                    value={newRelData.sourceCharId || ''} 
+                    onChange={e => setNewRelData({...newRelData, sourceCharId: e.target.value})}
+                    className="w-full bg-[#141B2D] border border-slate-700 rounded p-1.5 text-white"
+                  >
+                    <option value="" disabled>Select Source</option>
+                    {characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-[10px] uppercase font-mono">Target Character</label>
+                  <select 
+                    value={newRelData.targetCharId || ''} 
+                    onChange={e => setNewRelData({...newRelData, targetCharId: e.target.value})}
+                    className="w-full bg-[#141B2D] border border-slate-700 rounded p-1.5 text-white"
+                  >
+                    <option value="" disabled>Select Target</option>
+                    {characters.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-[10px] uppercase font-mono">Relationship Type</label>
+                  <select 
+                    value={newRelData.type} 
+                    onChange={e => setNewRelData({...newRelData, type: e.target.value as RelationshipType})}
+                    className="w-full bg-[#141B2D] border border-slate-700 rounded p-1.5 text-white"
+                  >
+                    {['Alliance', 'Conflict', 'Hidden', 'Family', 'Mentor', 'Tension', 'Rivalry'].map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-slate-400 text-[10px] uppercase font-mono">Intensity (1-10)</label>
+                    <input 
+                      type="number" min="1" max="10" 
+                      value={newRelData.intensity} 
+                      onChange={e => setNewRelData({...newRelData, intensity: Number(e.target.value)})}
+                      className="w-full bg-[#141B2D] border border-slate-700 rounded p-1.5 text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-slate-400 text-[10px] uppercase font-mono">Trust (-100 to 100)</label>
+                    <input 
+                      type="number" min="-100" max="100" 
+                      value={newRelData.trustScore} 
+                      onChange={e => setNewRelData({...newRelData, trustScore: Number(e.target.value)})}
+                      className="w-full bg-[#141B2D] border border-slate-700 rounded p-1.5 text-white"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-[10px] uppercase font-mono">History</label>
+                  <textarea 
+                    value={newRelData.history} 
+                    onChange={e => setNewRelData({...newRelData, history: e.target.value})}
+                    className="w-full bg-[#141B2D] border border-slate-700 rounded p-1.5 text-white h-16 resize-none"
+                    placeholder="Describe their history..."
+                  />
+                </div>
+              </div>
+            ) : selectedRel && sourceChar && targetChar ? (
               <div className="space-y-3 text-xs">
                 {/* Character Pair */}
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#141B2D] border border-slate-800">
@@ -250,6 +332,7 @@ export const RelationshipWeb: React.FC<RelationshipWebProps> = ({
                   </div>
                 </div>
 
+
                 {/* Backstory / Narrative History */}
                 <div className="space-y-1">
                   <div className="text-slate-400 text-[11px] font-mono uppercase">CANON HISTORY</div>
@@ -257,6 +340,73 @@ export const RelationshipWeb: React.FC<RelationshipWebProps> = ({
                     {selectedRel.history}
                   </p>
                 </div>
+
+                {/* Timestamped History Log */}
+                {selectedRel.historyLog && selectedRel.historyLog.length > 0 && (
+                  <div className="space-y-2 mt-4 pt-4 border-t border-slate-800">
+                    <div className="text-slate-400 text-[11px] font-mono uppercase flex items-center justify-between">
+                      <span>EVOLUTION LOG</span>
+                      <span className="text-indigo-400">{selectedRel.historyLog.length} ENTRIES</span>
+                    </div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                      {selectedRel.historyLog.map((log, idx) => (
+                        <div key={idx} className="bg-slate-900/50 p-2 rounded border border-slate-800 flex flex-col space-y-1">
+                          <div className="flex justify-between items-center text-[10px] font-mono">
+                            <span className="text-slate-500">{new Date(log.date).toLocaleString()}</span>
+                            <span className={log.trustScore >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                              {log.trustScore > 0 ? `+${log.trustScore}` : log.trustScore} Trust
+                            </span>
+                          </div>
+                          <p className="text-slate-300 text-xs">{log.note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add Log Entry */}
+                <div className="mt-4 space-y-2 border-t border-slate-800 pt-4">
+                  <div className="text-slate-400 text-[10px] uppercase font-mono mb-1">Add Evolution Log Entry</div>
+                  <input
+                    type="text"
+                    value={newLogNote}
+                    onChange={e => setNewLogNote(e.target.value)}
+                    placeholder="Event or change in relationship..."
+                    className="w-full bg-[#0B1020] border border-slate-700 rounded p-1.5 text-white text-xs"
+                  />
+                  <div className="flex space-x-2">
+                    <input
+                      type="number"
+                      value={newLogTrust}
+                      onChange={e => setNewLogTrust(Number(e.target.value))}
+                      placeholder="Trust change"
+                      className="w-24 bg-[#0B1020] border border-slate-700 rounded p-1.5 text-white text-xs"
+                    />
+                    <button
+                      onClick={() => {
+                        if (newLogNote.trim()) {
+                          const updatedRel = { ...selectedRel };
+                          if (!updatedRel.historyLog) updatedRel.historyLog = [];
+                          updatedRel.historyLog.push({
+                            date: new Date().toISOString(),
+                            trustScore: newLogTrust,
+                            note: newLogNote
+                          });
+                          updatedRel.trustScore = Math.max(-100, Math.min(100, updatedRel.trustScore + newLogTrust));
+                          onUpdateRelationship(updatedRel);
+                          setNewLogNote('');
+                          setNewLogTrust(0);
+                        }
+                      }}
+                      disabled={!newLogNote.trim()}
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold text-[10px] uppercase disabled:opacity-50"
+                    >
+                      Log Event
+                    </button>
+                  </div>
+                </div>
+
+
               </div>
             ) : (
               <div className="text-slate-500 text-xs py-8 text-center">
@@ -265,15 +415,40 @@ export const RelationshipWeb: React.FC<RelationshipWebProps> = ({
             )}
           </div>
 
-          <button
-            onClick={onAddRelationship}
-            className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-xs transition-colors flex items-center justify-center space-x-1.5"
-          >
-            <GitCommit className="w-4 h-4" />
-            <span>+ ADD NEW RELATIONSHIP EDGE</span>
-          </button>
+          
+          {isAddingMode ? (
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setIsAddingMode(false)}
+                className="w-1/3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-semibold text-xs transition-colors"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={() => {
+                  if (newRelData.sourceCharId && newRelData.targetCharId) {
+                    onAddRelationship(newRelData as Omit<Relationship, 'id'>);
+                    setIsAddingMode(false);
+                  }
+                }}
+                disabled={!newRelData.sourceCharId || !newRelData.targetCharId}
+                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50"
+              >
+                SAVE EDGE
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAddingMode(true)}
+              className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-xs transition-colors flex items-center justify-center space-x-1.5"
+            >
+              <GitCommit className="w-4 h-4" />
+              <span>+ ADD NEW RELATIONSHIP EDGE</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
+
   );
 };

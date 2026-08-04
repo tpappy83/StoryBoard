@@ -22,7 +22,7 @@ import {
   Compass,
   MessageSquare
 } from 'lucide-react';
-import { PresetMode } from '../types';
+import { WorkspaceMode } from '../types';
 
 interface TutorialStep {
   id: string;
@@ -30,7 +30,7 @@ interface TutorialStep {
   subtitle: string;
   description: string;
   tip: string;
-  presetMode?: PresetMode;
+  presetMode?: WorkspaceMode;
   icon: React.ReactNode;
   badgeText: string;
   highlightSelector?: string;
@@ -41,8 +41,8 @@ interface TutorialStep {
 interface GuidedTutorialProps {
   isOpen: boolean;
   onClose: () => void;
-  activePreset: PresetMode;
-  setActivePreset: (mode: PresetMode) => void;
+  activeWorkspace: WorkspaceMode;
+  setActiveWorkspace: (mode: WorkspaceMode) => void;
   onOpenAiDrawer?: () => void;
   onRunAudit?: () => void;
 }
@@ -50,8 +50,8 @@ interface GuidedTutorialProps {
 export const GuidedTutorial: React.FC<GuidedTutorialProps> = ({
   isOpen,
   onClose,
-  activePreset,
-  setActivePreset,
+  activeWorkspace,
+  setActiveWorkspace,
   onOpenAiDrawer,
   onRunAudit
 }) => {
@@ -60,59 +60,72 @@ export const GuidedTutorial: React.FC<GuidedTutorialProps> = ({
   const tutorialSteps: TutorialStep[] = [
     {
       id: 'welcome',
-      title: 'Welcome to Narrative OS v2.0',
+      title: 'Welcome to Narrative OS v2.5',
       subtitle: 'The Real-Time AI Narrative Architecture & Worldbuilding Suite',
-      description: 'Narrative OS is engineered for novelists, screenwriters, and narrative designers crafting multi-threaded stories. It coordinates live character memory, plot threads, canon rules, and AI advisory boards.',
-      tip: 'Pro Tip: You can launch this interactive tour anytime from the header compass icon!',
+      description: 'Narrative OS is engineered for novelists, screenwriters, and narrative designers crafting multi-threaded stories. It coordinates live character memory, plot threads, canon rules, multi-pass AI editing, and transaction auditing.',
+      tip: 'Pro Tip: Launch this interactive tour anytime from the header compass icon!',
       presetMode: 'WRITING',
       icon: <Sliders className="w-6 h-6 text-indigo-400" />,
       badgeText: 'Overview 1/8',
       speechPosition: 'center'
     },
     {
-      id: 'presets',
-      title: '11 Specialized Workspace Engines',
-      subtitle: 'Seamlessly Switch Between Creative & Analytical Modes',
-      description: 'Switch between 11 dedicated workstations: Scene Editor, State Engine, Writer\'s Room Council, Consequence Tracker, Intersection Engine, Structure Intelligence, Off-Screen Sim, Character Web, Continuity Vault, Timeline, and 16-Pad MPC Sequencer.',
-      tip: 'Try clicking "Switch Workspace" below to jump directly into the targeted workstation!',
+      id: 'multi_pass',
+      title: '4-Pass Multi-Pass Revision Engine',
+      subtitle: 'High-Reasoning Multi-Stage Scene Prose Rewrites',
+      description: 'Refine your prose through 4 distinct AI editorial passes: Pass 1 (Structural & Plot Alignment), Pass 2 (Character Arcs & Voice), Pass 3 (Canon & World Consistency), and Pass 4 (Prose Polish & Thematic Reinforcement).',
+      tip: 'Open any scene in the Scene Editor and click "⚡ 4-PASS REVISION ENGINE" to run deep rewrites!',
       presetMode: 'WRITING',
-      icon: <Cpu className="w-6 h-6 text-amber-400" />,
-      badgeText: 'Header Transport 2/8',
+      icon: <Sparkles className="w-6 h-6 text-indigo-400" />,
+      badgeText: 'Multi-Pass AI 2/8',
       speechPosition: 'top',
       actionButtonText: 'Try Writing Engine'
     },
     {
-      id: 'browser',
-      title: 'Story Universe Navigator',
-      subtitle: 'Collapsible Left Tree for Characters, Scenes & Lore',
-      description: 'The left sidebar organizes active manuscript entities. Click any character, scene, or lore fact to inspect details, or click quick-add buttons to expand your universe on the fly.',
-      tip: 'You can toggle the sidebar collapse state using the left arrow icon for an expansive editing canvas.',
-      presetMode: 'WRITING',
-      icon: <BookOpen className="w-6 h-6 text-sky-400" />,
-      badgeText: 'Left Panel 3/8',
-      speechPosition: 'left'
+      id: 'drag_drop',
+      title: 'Interactive Narrative Drag & Drop',
+      subtitle: 'Direct Visual Mutations Across Universe Entities',
+      description: 'Drag characters, plot threads, canon facts, setups, or locations onto scenes, character cards, or convergence nodes to instantly update participants, run tension checks, or link narrative setups.',
+      tip: 'Try dragging a character onto another character card in the Character Web to assess relationship tension!',
+      presetMode: 'CHARACTER',
+      icon: <Layers className="w-6 h-6 text-purple-400" />,
+      badgeText: 'Spatial Editing 3/8',
+      speechPosition: 'left',
+      actionButtonText: 'Open Character Web'
+    },
+    {
+      id: 'audit_trail',
+      title: 'Audit Trail & Sync State Engine',
+      subtitle: 'Versioned State Ledger & Continuity Rollback',
+      description: 'Every state mutation is versioned and audited in a transaction ledger. Supports offline queueing, conflict resolution, and one-click rollback to saved story continuity checkpoints.',
+      tip: 'Click "AUDIT TRAIL" in the top header bar to create checkpoints or revert to previous story versions!',
+      presetMode: 'CONTINUITY',
+      icon: <ShieldCheck className="w-6 h-6 text-emerald-400" />,
+      badgeText: 'State Ledger 4/8',
+      speechPosition: 'top',
+      actionButtonText: 'View Audit Engine'
     },
     {
       id: 'chekhov',
-      title: 'Foreshadowing & Chekhov\'s Gun Analyzer',
+      title: 'Foreshadowing & Chekhov\'s Gun Tracker',
       subtitle: 'Automatic Detection of Unresolved High-Importance Setups',
-      description: 'Track foreshadowed objects, secrets, and promises in the Setup & Payoff Tracker. Our automatic analyzer flags setups with Importance ≥ 7 introduced 20+ chapters ago with no linked payoff as a "Chekhov Warning".',
+      description: 'Track foreshadowed objects, secrets, and promises in the Setup & Payoff Tracker. Our automatic analyzer flags unresolved setups with high importance as a "Chekhov Warning".',
       tip: 'Click "AI Payoff" on any flagged item to let Gemini generate satisfying resolution beats!',
-      presetMode: 'STATE_ENGINE',
-      icon: <AlertTriangle className="w-6 h-6 text-red-400" />,
-      badgeText: 'State Engine 4/8',
-      actionButtonText: 'View Chekhov Analyzer'
+      presetMode: 'SIMULATION',
+      icon: <AlertTriangle className="w-6 h-6 text-rose-400" />,
+      badgeText: 'Obligation Engine 5/8',
+      actionButtonText: 'View Setup Tracker'
     },
     {
       id: 'writers_room',
-      title: 'Writer\'s Room AI Advisory Board',
+      title: 'Narrative Advisory Council',
       subtitle: '5-Agent Consensus Council for Structural & Prose Guidance',
       description: 'Consult 5 specialized council agents: Story Architect, Character Psychologist, Lore Guardian, Plot Engineer, and Continuity Inspector. Pitch story dilemmas or click "APPLY" to rewrite scene prose directly from directives!',
       tip: 'Use quick presets like "Escalate Scene Tension" or "Verify Lore Rules" for instant council feedback.',
-      presetMode: 'WRITERS_ROOM',
-      icon: <Brain className="w-6 h-6 text-purple-400" />,
-      badgeText: 'AI Council 5/8',
-      actionButtonText: 'Open Writer\'s Room'
+      presetMode: 'CUSTOM',
+      icon: <Brain className="w-6 h-6 text-amber-400" />,
+      badgeText: 'AI Council 6/8',
+      actionButtonText: 'Open Advisory Council'
     },
     {
       id: 'offscreen_sim',
@@ -120,31 +133,20 @@ export const GuidedTutorial: React.FC<GuidedTutorialProps> = ({
       subtitle: 'Simulating Autonomous Off-Screen Character Choices',
       description: 'Story universes continue evolving even when characters aren\'t on stage. Run background simulation ticks to let off-screen antagonists and allies pursue goals and trigger unscripted plot twists.',
       tip: 'Run a 1-chapter simulation tick to discover spontaneous plot convergences!',
-      presetMode: 'OFFSCREEN_SIM',
-      icon: <Radio className="w-6 h-6 text-rose-400" />,
-      badgeText: 'World Sim 6/8',
+      presetMode: 'SIMULATION',
+      icon: <Radio className="w-6 h-6 text-sky-400" />,
+      badgeText: 'World Sim 7/8',
       actionButtonText: 'Open Off-Screen Sim'
     },
     {
       id: 'continuity',
-      title: 'Continuity Vault & Paradox Prevention',
+      title: 'Continuity Vault & Lore Audit',
       subtitle: 'Zero-Paradox Protection Against Plot Holes',
       description: 'Immutable canon facts enforce timeline logic, physical boundaries, and emotional continuity. Run automated audits to spot location conflicts or broken rules before drafting.',
-      tip: 'Click "Audit" in the top header at any time to verify your entire manuscript\'s integrity.',
+      tip: 'Click "AUDIT" in the top header at any time to verify your entire manuscript\'s integrity.',
       presetMode: 'CONTINUITY',
-      icon: <ShieldCheck className="w-6 h-6 text-emerald-400" />,
-      badgeText: 'Lore Audit 7/8',
-      actionButtonText: 'View Continuity Vault'
-    },
-    {
-      id: 'ai_propose',
-      title: 'AI Proposal Engine & One-Click Approval',
-      subtitle: 'Co-Create Rich Scenes with Structural State Mutations',
-      description: 'Click "AI PROPOSE" in the top header to ask Gemini for next scene proposals. Review automatically generated validation checks, character mood shifts, and prose drafts before committing them.',
-      tip: 'You\'re ready to build! Jump in and start crafting your masterpiece.',
-      presetMode: 'WRITING',
-      icon: <Sparkles className="w-6 h-6 text-indigo-400" />,
-      badgeText: 'Co-Pilot 8/8',
+      icon: <CheckCircle2 className="w-6 h-6 text-emerald-400" />,
+      badgeText: 'Lore Audit 8/8',
       actionButtonText: 'Finish Tutorial'
     }
   ];
@@ -154,7 +156,7 @@ export const GuidedTutorial: React.FC<GuidedTutorialProps> = ({
   // Auto-align preset when stepping through tutorial
   useEffect(() => {
     if (isOpen && currentStep.presetMode) {
-      setActivePreset(currentStep.presetMode);
+      setActiveWorkspace(currentStep.presetMode);
     }
   }, [currentStepIndex, isOpen]);
 
@@ -232,15 +234,15 @@ export const GuidedTutorial: React.FC<GuidedTutorialProps> = ({
             <span className="text-slate-400">Target Workstation:</span>
             <button
               onClick={() => {
-                if (currentStep.presetMode) setActivePreset(currentStep.presetMode);
+                if (currentStep.presetMode) setActiveWorkspace(currentStep.presetMode);
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
-                activePreset === currentStep.presetMode
+                activeWorkspace === currentStep.presetMode
                   ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/40'
                   : 'bg-indigo-600 hover:bg-indigo-500 text-white'
               }`}
             >
-              <span>{activePreset === currentStep.presetMode ? '✓ Active Workstation' : currentStep.actionButtonText}</span>
+              <span>{activeWorkspace === currentStep.presetMode ? '✓ Active Workstation' : currentStep.actionButtonText}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

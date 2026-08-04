@@ -81,7 +81,7 @@ export const SetupDependencyGraph: React.FC<SetupDependencyGraphProps> = ({
 
   // Linked Payoffs for this setup
   const linkedPayoffs = payoffs.filter(
-    p => p.setupIds.includes(currentSetup?.id) || currentSetup?.linkedPayoffIds.includes(p.id)
+    p => (p.setupIds || []).includes(currentSetup?.id || '') || (currentSetup?.linkedPayoffIds || []).includes(p.id)
   );
 
   // Associated Characters
@@ -562,7 +562,7 @@ export const SetupDependencyGraph: React.FC<SetupDependencyGraphProps> = ({
 
           <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
             {setups.map(sup => {
-              const supPayoffs = payoffs.filter(p => p.setupIds.includes(sup.id));
+              const supPayoffs = payoffs.filter(p => (p.setupIds || []).includes(sup.id));
               const supAge = getSetupAge(sup, currentChapter);
               const supChekhov = isChekhovWarning(sup, currentChapter);
 

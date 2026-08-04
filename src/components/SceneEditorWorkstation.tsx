@@ -1,28 +1,50 @@
 import React, { useState, useEffect } from 'react';
-import { Scene, Character, SceneProposal } from '../types';
-import { BookOpen, Sparkles, CheckCircle2, AlertTriangle, XCircle, ArrowRight, Save, Layers, Clock, ShieldCheck, UserCheck } from 'lucide-react';
+import { Scene, Character, SceneProposal, Relationship, PlotThread, CanonFact, TimelineEvent, ConvergenceEvent } from '../types';
+import { BookOpen, Sparkles, CheckCircle2, AlertTriangle, XCircle, ArrowRight, Save, Layers, Clock, ShieldCheck, UserCheck, RefreshCw, Clapperboard } from 'lucide-react';
+import { NarrativeDropZone } from './workspace/NarrativeDropZone';
+import { NarrativeDropContext } from '../interactions/narrativeDragTypes';
+import { MultiPassRevisionModal } from './MultiPassRevisionModal';
+import { useSetupPayoffStore } from '../stores/setupPayoffStore';
+import { ThreeDotActionsBar } from './ThreeDotActionsBar';
 
 interface SceneEditorWorkstationProps {
   scene: Scene | null;
   characters: Character[];
   proposals: SceneProposal[];
+  relationships?: Relationship[];
+  plotThreads?: PlotThread[];
+  canonFacts?: CanonFact[];
+  scenes?: Scene[];
+  timelineEvents?: TimelineEvent[];
+  convergenceEvents?: ConvergenceEvent[];
   onSaveScene: (updatedScene: Scene) => void;
   onApproveProposal: (proposalId: string) => void;
   onOpenAiProposeModal: () => void;
+  onOpenWritingStudio?: (scene: Scene) => void;
 }
 
 export const SceneEditorWorkstation: React.FC<SceneEditorWorkstationProps> = ({
   scene,
   characters,
   proposals,
+  relationships = [],
+  plotThreads = [],
+  canonFacts = [],
+  scenes = [],
+  timelineEvents = [],
+  convergenceEvents = [],
   onSaveScene,
   onApproveProposal,
-  onOpenAiProposeModal
+  onOpenAiProposeModal,
+  onOpenWritingStudio
 }) => {
   const [editedTitle, setEditedTitle] = useState('');
   const [editedProse, setEditedProse] = useState('');
   const [editedLocation, setEditedLocation] = useState('');
   const [isSaved, setIsSaved] = useState(false);
+  const [isMultiPassModalOpen, setIsMultiPassModalOpen] = useState(false);
+
+  const { setups, payoffs } = useSetupPayoffStore();
 
   useEffect(() => {
     if (scene) {
@@ -67,22 +89,22 @@ export const SceneEditorWorkstation: React.FC<SceneEditorWorkstationProps> = ({
   }
 
   return (
-    <div className="bg-[#141B2D] border border-[#1A2338] rounded-xl p-4 shadow-2xl space-y-4">
+    <div className="bg-[#000000] border border-[#153B5C] rounded-2xl p-4 shadow-2xl space-y-4 font-mono select-none">
       {/* Header Controls */}
-      <div className="flex flex-wrap items-center justify-between border-b border-[#1A2338] pb-3 gap-2">
+      <div className="flex flex-wrap items-center justify-between border-b border-[#153B5C] pb-3 gap-2">
         <div className="flex items-center space-x-3">
-          <div className="bg-indigo-600/20 text-indigo-400 p-2 rounded-lg border border-indigo-500/30">
+          <div className="bg-[#0A2A43] text-[#F2C94C] p-2 rounded-lg border border-[#153B5C]">
             <BookOpen className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-[10px] font-mono bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800">
+              <span className="text-[10px] font-mono bg-[#0A2A43] text-[#F2C94C] px-2 py-0.5 rounded border border-[#153B5C] font-bold">
                 PAD #{scene.padIndex}
               </span>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase ${
                 scene.status === 'Approved' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
                 scene.status === 'Violation' ? 'bg-rose-950 text-rose-400 border border-rose-800' :
-                'bg-slate-800 text-slate-300'
+                'bg-[#0A2A43] text-[#C4C4C4] border border-[#153B5C]'
               }`}>
                 {scene.status}
               </span>
@@ -91,7 +113,7 @@ export const SceneEditorWorkstation: React.FC<SceneEditorWorkstationProps> = ({
               type="text"
               value={editedTitle}
               onChange={e => setEditedTitle(e.target.value)}
-              className="text-base font-bold text-white bg-transparent focus:outline-none focus:bg-[#0B1020] px-1 py-0.5 rounded border border-transparent focus:border-indigo-500/50 mt-1"
+              className="text-base font-bold text-white bg-transparent focus:outline-none focus:bg-[#0A2A43] px-1.5 py-0.5 rounded border border-transparent focus:border-[#153B5C] mt-1 transition-all"
             />
           </div>
         </div>
@@ -99,23 +121,51 @@ export const SceneEditorWorkstation: React.FC<SceneEditorWorkstationProps> = ({
         <div className="flex items-center space-x-2">
           <button
             onClick={handleSave}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`btn-workstation flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
               isSaved
                 ? 'bg-emerald-600 text-white'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                : 'bg-[#0A2A43] hover:bg-[#0E3859] text-white border border-[#153B5C] hover:border-[#F2C94C]'
             }`}
           >
-            <Save className="w-4 h-4" />
+            <Save className="w-4 h-4 text-[#F2C94C]" />
             <span>{isSaved ? 'SAVED TO CANON' : 'SAVE CHANGES'}</span>
           </button>
 
+          {onOpenWritingStudio && scene && (
+            <button
+              onClick={() => onOpenWritingStudio(scene)}
+              className="btn-workstation flex items-center space-x-1.5 bg-[#0A2A43] hover:bg-[#0E3859] text-white border border-[#153B5C] hover:border-[#F2C94C] px-3 py-1.5 rounded-md text-xs font-bold shadow-md transition-all"
+              title="Open scene in Final Draft / Scrivener Writing Studio"
+            >
+              <Clapperboard className="w-4 h-4 text-[#F2C94C]" />
+              <span className="hidden md:inline">STUDIO FORMAT</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenAiProposeModal}
-            className="flex items-center space-x-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md"
+            className="btn-workstation flex items-center space-x-1.5 bg-[#F2C94C] hover:bg-amber-400 text-[#000000] px-3 py-1.5 rounded-md text-xs font-bold shadow-md transition-all"
           >
-            <Sparkles className="w-4 h-4" />
-            <span>PROPOSE AI REVISION</span>
+            <Sparkles className="w-4 h-4 text-[#000000]" />
+            <span className="hidden sm:inline">AI REVISION</span>
           </button>
+
+          <button
+            onClick={() => setIsMultiPassModalOpen(true)}
+            className="btn-workstation flex items-center space-x-1.5 bg-[#0A2A43] hover:bg-[#0E3859] text-[#F2C94C] border border-[#153B5C] hover:border-[#F2C94C] px-3 py-1.5 rounded-md text-xs font-bold shadow-md"
+            title="Open 4-Pass Multi-Pass Narrative Revision Engine"
+          >
+            <Layers className="w-4 h-4 text-[#F2C94C]" />
+            <span className="hidden lg:inline">4-PASS ENGINE</span>
+          </button>
+
+          {/* THREE-DOT ACTIONS MENU */}
+          <ThreeDotActionsBar
+            scene={scene}
+            onSaveScene={handleSave}
+            onOpenWritingStudio={onOpenWritingStudio ? () => onOpenWritingStudio(scene) : undefined}
+            onRunMultiPassRevision={() => setIsMultiPassModalOpen(true)}
+          />
         </div>
       </div>
 
@@ -136,13 +186,48 @@ export const SceneEditorWorkstation: React.FC<SceneEditorWorkstationProps> = ({
             <span>WORD COUNT: {editedProse.trim().split(/\s+/).filter(Boolean).length} WORDS</span>
           </div>
 
-          <textarea
-            value={editedProse}
-            onChange={e => setEditedProse(e.target.value)}
-            rows={12}
-            className="w-full bg-[#0B1020] text-slate-200 p-4 rounded-xl border border-[#1A2338] text-sm leading-relaxed focus:outline-none focus:border-indigo-500/80 font-serif resize-y"
-            placeholder="Write or edit scene prose here..."
-          />
+          {scene && (
+            <NarrativeDropZone
+              targetType="scene"
+              targetId={scene.id}
+              accepts={['character', 'canon_fact', 'plot_thread', 'location']}
+              label={`into Scene "${scene.title}"`}
+              context={{
+                characters,
+                scenes: scenes.length ? scenes : [scene],
+                relationships,
+                plotThreads,
+                canonFacts,
+                timelineEvents,
+                convergenceEvents
+              }}
+              onCommitOperation={(result, payloadData) => {
+                if (result.operationType === 'linkCharacterToScene' && payloadData?.characterId) {
+                  const currentParticipants = scene.participantIds || [];
+                  if (!currentParticipants.includes(payloadData.characterId)) {
+                    onSaveScene({
+                      ...scene,
+                      participantIds: [...currentParticipants, payloadData.characterId]
+                    });
+                  }
+                } else if (result.operationType === 'linkCanonToScene' && payloadData?.factText) {
+                  setEditedProse((prev) => `${prev}\n\n[Canon Lore Note: ${payloadData.factText}]`);
+                } else if (result.operationType === 'attachThreadToScene' && payloadData?.threadTitle) {
+                  setEditedProse((prev) => `${prev}\n\n[Plot Thread Beat: ${payloadData.threadTitle}]`);
+                } else if (result.operationType === 'updateSceneLocation' && payloadData?.location) {
+                  setEditedLocation(payloadData.location);
+                }
+              }}
+            >
+              <textarea
+                value={editedProse}
+                onChange={e => setEditedProse(e.target.value)}
+                rows={12}
+                className="w-full bg-[#0B1020] text-slate-200 p-4 rounded-xl border border-[#1A2338] text-sm leading-relaxed focus:outline-none focus:border-indigo-500/80 font-serif resize-y"
+                placeholder="Write or edit scene prose here... (Drag and drop characters, canon facts, or plot threads directly onto this canvas)"
+              />
+            </NarrativeDropZone>
+          )}
 
           {/* Character Participants Tags */}
           <div className="flex items-center space-x-2 text-xs">
@@ -235,6 +320,32 @@ export const SceneEditorWorkstation: React.FC<SceneEditorWorkstationProps> = ({
           )}
         </div>
       </div>
+
+      <MultiPassRevisionModal
+        isOpen={isMultiPassModalOpen}
+        onClose={() => setIsMultiPassModalOpen(false)}
+        scene={scene}
+        characters={characters}
+        plotThreads={plotThreads}
+        canonFacts={canonFacts}
+        timelineEvents={timelineEvents}
+        setups={setups}
+        payoffs={payoffs}
+        onApplyRevisedProse={(revisedProse) => {
+          setEditedProse(revisedProse);
+          if (scene) {
+            onSaveScene({
+              ...scene,
+              title: editedTitle || scene.title,
+              prose: revisedProse,
+              location: editedLocation || scene.location,
+              wordCount: revisedProse.trim().split(/\s+/).filter(Boolean).length
+            });
+            setIsSaved(true);
+            setTimeout(() => setIsSaved(false), 3000);
+          }
+        }}
+      />
     </div>
   );
 };

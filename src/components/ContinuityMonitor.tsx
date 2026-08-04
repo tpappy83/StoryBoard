@@ -188,7 +188,7 @@ export const ContinuityMonitor: React.FC<ContinuityMonitorProps> = ({
 
   const handleSimulateEmotionalSurge = (char: Character) => {
     if (!onUpdateCharacter) return;
-    const isSpiked = char.emotionalState.mood.includes('Panicked') || (char.emotionalVector?.fear || 0) > 70;
+    const isSpiked = (char.emotionalState?.mood || '').includes('Panicked') || (char.emotionalVector?.fear || 0) > 70;
     const updated: Character = {
       ...char,
       emotionalState: {

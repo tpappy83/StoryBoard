@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { TimelineEvent, TimelineLayer, Character } from '../types';
 import { Layers, AlertTriangle, CheckCircle2, Clock, Plus, ZoomIn, ZoomOut, Filter, X, Trash2, Edit2 } from 'lucide-react';
+import { DropTarget } from './workspace/DropTarget';
+import { DragPayload } from '../stores/workspaceStore';
 
 interface TimelineObservatoryProps {
   events: TimelineEvent[];
@@ -230,7 +232,27 @@ export const TimelineObservatory: React.FC<TimelineObservatoryProps> = ({
                     const evt = layerEvents.find(e => e.phase === phase);
 
                     return (
-                      <div key={phase} className="relative flex flex-col justify-center">
+                      <DropTarget
+                        key={phase}
+                        accepts={['scene', 'character', 'plot_thread']}
+                        label={`Phase ${phase} ${layer}`}
+                        onDrop={(payload: DragPayload) => {
+                          const title = payload.data?.title || payload.data?.name || payload.id;
+                          const newEvt: TimelineEvent = {
+                            id: `evt_${Date.now()}`,
+                            timestampLabel: `Cycle 289.0${phase}`,
+                            phase,
+                            layer,
+                            description: `Linked ${payload.type}: ${title}`,
+                            involvedCharIds: payload.type === 'character' ? [payload.id] : [],
+                            conflictStatus: 'Valid'
+                          };
+                          if (onUpdateEvents) {
+                            onUpdateEvents([...events, newEvt]);
+                          }
+                        }}
+                        className="relative flex flex-col justify-center min-h-[60px]"
+                      >
                         {evt ? (
                           <div
                             onClick={(e) => handleOpenEdit(evt, e)}
@@ -262,7 +284,7 @@ export const TimelineObservatory: React.FC<TimelineObservatoryProps> = ({
                             + ADD
                           </button>
                         )}
-                      </div>
+                      </DropTarget>
                     );
                   })}
                 </div>

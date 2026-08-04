@@ -1,4 +1,10 @@
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from './firebase';
+import { useSettingsStore } from './stores/settingsStore';
+import { useAuthStore } from './stores/authStore';
 import React, { useState, useEffect } from 'react';
+import { LiveVoiceChat } from './components/LiveVoiceChat';
+
 import {
   Character,
   Relationship,
@@ -14,8 +20,9 @@ import {
   CanonCategory
 } from './types';
 import { HeaderTransport } from './components/HeaderTransport';
-import { BrowserPanel } from './components/BrowserPanel';
-import { MpcPadMatrix } from './components/MpcPadMatrix';
+import { NarrativeNavigator } from './components/NarrativeNavigator';
+import { SceneBoard } from './components/SceneBoard';
+import { StatusDock } from './components/StatusDock';
 import { RelationshipWeb } from './components/RelationshipWeb';
 import { CharacterIntelligence } from './components/CharacterIntelligence';
 import { SceneEditorWorkstation } from './components/SceneEditorWorkstation';
@@ -24,7 +31,6 @@ import { CanonMemoryVault } from './components/CanonMemoryVault';
 import { ConvergenceMap } from './components/ConvergenceMap';
 import { ContinuityMonitor } from './components/ContinuityMonitor';
 import { AiCommandDrawer } from './components/AiCommandDrawer';
-import { BottomTrackMixer } from './components/BottomTrackMixer';
 import { CharacterContextPanel } from './components/CharacterContextPanel';
 import { WritersRoomPanel } from './components/WritersRoomPanel';
 import { ConsequenceEngine } from './components/ConsequenceEngine';
@@ -34,11 +40,28 @@ import { StructureIntelligence } from './components/StructureIntelligence';
 import { OffscreenSimulator } from './components/OffscreenSimulator';
 import { DynamicStateEnginePanel } from './components/DynamicStateEnginePanel';
 import { GuidedTutorial } from './components/GuidedTutorial';
-import { StructureFramework, StructureMilestone, StateEngineSimulationResult } from './types';
+import { ChatbotDrawer } from './components/ChatbotDrawer';
+import { GoogleKeepWorkspace } from './components/GoogleKeepWorkspace';
+import { AuditTrailDrawer } from './components/AuditTrailDrawer';
+import { PlotEvolutionWorkstation } from './components/PlotEvolutionWorkstation';
+import { TestingHarnessModal } from './components/TestingHarnessModal';
+import { WritingStudioWindow } from './components/writingStudio/WritingStudioWindow';
+import { useWritingStudioStore } from './stores/writingStudioStore';
+import { NarrativeSyncService } from './services/narrativeSyncService';
+import { useAuditTrailStore } from './services/auditTrailService';
+import { StructureFramework, StructureMilestone, StateEngineSimulationResult, WorkspaceMode, SelectedNarrativeObject, NarrativeObjectType } from './types';
 import { INITIAL_PROJECT, INITIAL_CHARACTERS, INITIAL_RELATIONSHIPS, INITIAL_PLOT_THREADS, INITIAL_CONVERGENCE_EVENTS, INITIAL_SCENES, INITIAL_TIMELINE_EVENTS, INITIAL_CANON_FACTS, INITIAL_VIOLATIONS, INITIAL_STRUCTURE_MILESTONES } from './data/initialData';
 import { useSetupPayoffStore } from './stores/setupPayoffStore';
+import { useWorkspaceStore } from './stores/workspaceStore';
+import { DockManager } from './components/workspace/DockManager';
+import { WorkspaceCanvas } from './components/workspace/WorkspaceCanvas';
+import { PanelContainer } from './components/workspace/PanelContainer';
+
+
+
 
 export default function App() {
+  const { firebaseUser: user } = useAuthStore();
   const [project, setProject] = useState<ProjectMetadata>(INITIAL_PROJECT);
   const [characters, setCharacters] = useState<Character[]>(INITIAL_CHARACTERS);
   const [relationships, setRelationships] = useState<Relationship[]>(INITIAL_RELATIONSHIPS);
@@ -52,14 +75,113 @@ export default function App() {
   const [structureFramework, setStructureFramework] = useState<StructureFramework>('3-Act');
   const [proposals, setProposals] = useState<SceneProposal[]>([]);
 
-  const [activePreset, setActivePreset] = useState<PresetMode>('WRITING');
+  const activeWorkspace = useWorkspaceStore((state) => state.activeWorkspace);
+  const setActiveWorkspace = useWorkspaceStore((state) => state.setActiveWorkspace);
   const [selectedCharId, setSelectedCharId] = useState<string | null>(INITIAL_CHARACTERS[0].id);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(INITIAL_SCENES[0].id);
+  const [selectedObject, setSelectedObject] = useState<SelectedNarrativeObject | null>(null);
   const [isBrowserCollapsed, setIsBrowserCollapsed] = useState<boolean>(false);
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState<boolean>(false);
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState<boolean>(false);
-  const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
+  const [isKeepOpen, setIsKeepOpen] = useState<boolean>(false);
+  const [isAuditTrailOpen, setIsAuditTrailOpen] = useState<boolean>(false);
+  const [isTestHarnessOpen, setIsTestHarnessOpen] = useState<boolean>(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+      const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+
+  // Setup Firestore save/load
+  useEffect(() => {
+    const saveToFirestore = async () => {
+      const { firebaseUser } = useAuthStore.getState();
+      if (!firebaseUser) {
+        alert("Please sign in to save to cloud.");
+        return;
+      }
+      
+      try {
+        useSettingsStore.setState({ cloudSyncStatus: 'syncing' });
+        
+                const data = {
+          project,
+          characters,
+          relationships,
+          plotThreads,
+          convergenceEvents,
+          scenes,
+          timelineEvents,
+          canonFacts,
+          violations,
+          structureMilestones,
+          setups: useSetupPayoffStore.getState().setups,
+          payoffs: useSetupPayoffStore.getState().payoffs
+        };
+        
+        await setDoc(doc(db, "projects", firebaseUser.uid), data);
+        useSettingsStore.setState({ cloudSyncStatus: 'synced' });
+        alert("Project saved successfully!");
+      } catch (err) {
+        console.error("Save error", err);
+        useSettingsStore.setState({ cloudSyncStatus: 'error' });
+        alert("Failed to save project.");
+      }
+    };
+
+    const loadFromFirestore = async () => {
+      const { firebaseUser } = useAuthStore.getState();
+      if (!firebaseUser) {
+        alert("Please sign in to load from cloud.");
+        return;
+      }
+      
+      try {
+        const docRef = doc(db, "projects", firebaseUser.uid);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.project) setProject(data.project);
+          if (data.characters) setCharacters(data.characters);
+          if (data.relationships) setRelationships(data.relationships);
+          if (data.plotThreads) setPlotThreads(data.plotThreads);
+          if (data.convergenceEvents) setConvergenceEvents(data.convergenceEvents);
+          if (data.scenes) setScenes(data.scenes);
+          if (data.timelineEvents) setTimelineEvents(data.timelineEvents);
+          if (data.canonFacts) setCanonFacts(data.canonFacts);
+          if (data.violations) setViolations(data.violations);
+          if (data.structureMilestones) setStructureMilestones(data.structureMilestones);
+          if (data.setups) useSetupPayoffStore.setState({ setups: data.setups });
+          if (data.payoffs) useSetupPayoffStore.setState({ payoffs: data.payoffs });
+          alert("Project loaded successfully!");
+        } else {
+          alert("No saved project found.");
+        }
+      } catch (err) {
+        console.error("Load error", err);
+        alert("Failed to load project.");
+      }
+    };
+
+    useSettingsStore.setState({
+      saveProject: saveToFirestore,
+      syncToCloud: saveToFirestore,
+      loadProject: loadFromFirestore
+    });
+  }, [
+    project, characters, relationships, plotThreads, convergenceEvents, 
+    scenes, timelineEvents, canonFacts, violations, structureMilestones
+  ]);
+
+
+  
+
+  useEffect(() => {
+    useAuthStore.getState().initAuth();
+
+  }, []);
+
+
 
   // Fetch initial state from Express backend
   useEffect(() => {
@@ -75,9 +197,12 @@ export default function App() {
         if (data.timelineEvents) setTimelineEvents(data.timelineEvents);
         if (data.canonFacts) setCanonFacts(data.canonFacts);
         if (data.violations) setViolations(data.violations);
-        if (data.structureMilestones) setStructureMilestones(data.structureMilestones);
+        if (data.structureMilestones) if (data.structureMilestones) setStructureMilestones(data.structureMilestones);
         if (data.structureFramework) setStructureFramework(data.structureFramework);
         if (data.proposals) setProposals(data.proposals);
+        if (data.version) {
+          NarrativeSyncService.getInstance().setClientVersion(data.version);
+        }
         if (data.setups || data.payoffs) {
           useSetupPayoffStore.getState().setInitialState(data.setups || [], data.payoffs || []);
         }
@@ -87,19 +212,43 @@ export default function App() {
       });
   }, []);
 
-  // Sync mutations back to backend
-  const syncStateToBackend = (updatedState: any) => {
+  // Sync state changes back to backend via NarrativeSyncService
+  const syncStateToBackend = (updatedState: any, actionSummary?: string) => {
     const currentSetupState = useSetupPayoffStore.getState();
     const payload = {
       setups: currentSetupState.setups,
       payoffs: currentSetupState.payoffs,
       ...updatedState
     };
-    fetch('/api/update-state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).catch(err => console.error('Failed to sync to server:', err));
+
+    let auditEntry;
+    if (actionSummary) {
+      auditEntry = useAuditTrailStore.getState().addAuditLog({
+        transactionId: `tx_${Date.now()}`,
+        actionType: 'STATE_SYNC',
+        summary: actionSummary
+      });
+    }
+
+    NarrativeSyncService.getInstance().queueStateSync(payload, auditEntry);
+  };
+
+  // State restoration handler for rollback
+  const handleApplyRestoredState = (restoredState: Record<string, any>) => {
+    if (restoredState.project) setProject(restoredState.project);
+    if (restoredState.characters) setCharacters(restoredState.characters);
+    if (restoredState.relationships) setRelationships(restoredState.relationships);
+    if (restoredState.plotThreads) setPlotThreads(restoredState.plotThreads);
+    if (restoredState.convergenceEvents) setConvergenceEvents(restoredState.convergenceEvents);
+    if (restoredState.scenes) setScenes(restoredState.scenes);
+    if (restoredState.timelineEvents) setTimelineEvents(restoredState.timelineEvents);
+    if (restoredState.canonFacts) setCanonFacts(restoredState.canonFacts);
+    if (restoredState.violations) setViolations(restoredState.violations);
+    if (restoredState.structureMilestones) setStructureMilestones(restoredState.structureMilestones);
+    if (restoredState.structureFramework) setStructureFramework(restoredState.structureFramework);
+    if (restoredState.setups || restoredState.payoffs) {
+      useSetupPayoffStore.getState().setInitialState(restoredState.setups || [], restoredState.payoffs || []);
+    }
   };
 
   // Automatically sync when setup/payoff store undergoes updates
@@ -114,6 +263,12 @@ export default function App() {
     setStructureMilestones(newMilestones);
     setStructureFramework(newFramework);
     syncStateToBackend({ structureMilestones: newMilestones, structureFramework: newFramework });
+  };
+
+  const handleUpdatePlotThread = (updatedThread: PlotThread) => {
+    const updated = plotThreads.map(t => t.id === updatedThread.id ? updatedThread : t);
+    setPlotThreads(updated);
+    syncStateToBackend({ plotThreads: updated }, `Evolved Plot Thread: ${updatedThread.name}`);
   };
 
   const handleUpdateTimelineEvents = (newEvents: TimelineEvent[]) => {
@@ -203,7 +358,7 @@ export default function App() {
       if (result.success && result.proposal) {
         setProposals(prev => [result.proposal, ...prev]);
         setIsAiDrawerOpen(false);
-        setActivePreset('WRITING');
+        setActiveWorkspace('WRITING');
       }
     } catch (error) {
       console.error('Error generating AI proposal:', error);
@@ -252,7 +407,7 @@ export default function App() {
         if (result.violations) {
           setViolations(result.violations);
         }
-        setActivePreset('CONTINUITY');
+        setActiveWorkspace('CONTINUITY');
       }
     } catch (e) {
       console.error('Audit failed:', e);
@@ -481,297 +636,311 @@ export default function App() {
   const selectedScene = scenes.find(s => s.id === selectedSceneId) || scenes[0] || null;
 
   return (
+    <>
+      <LiveVoiceChat />
     <div className="min-h-screen bg-[#0B1020] text-slate-100 flex flex-col font-sans select-none">
       {/* Top Header & Transport Bar */}
-      <HeaderTransport
+      <HeaderTransport user={user}
         project={project}
-        activePreset={activePreset}
-        setActivePreset={setActivePreset}
+        activeWorkspace={activeWorkspace}
+        setActiveWorkspace={setActiveWorkspace}
         continuityScore={project.continuityScore}
         canonCount={canonFacts.length}
         violationCount={violations.filter(v => !v.resolved).length}
         aiStatus={isAiLoading ? 'PROPOSING' : 'READY'}
         onRunAudit={handleRunAudit}
         onOpenAiDrawer={() => setIsAiDrawerOpen(true)}
+        onOpenChat={() => setIsChatOpen(true)}
+        onOpenKeepWorkspace={() => setIsKeepOpen(true)}
+        onOpenAuditTrail={() => setIsAuditTrailOpen(true)}
+        onOpenTestHarness={() => setIsTestHarnessOpen(true)}
         soundEnabled={soundEnabled}
         setSoundEnabled={setSoundEnabled}
         onOpenTutorial={() => setIsTutorialOpen(true)}
+        onToggleNavigator={() => setIsMobileNavOpen(prev => !prev)}
+        scenes={scenes}
+        proposals={proposals}
+        scene={selectedScene || scenes[0]}
+        characters={characters}
+        plotThreads={plotThreads}
+        canonFacts={canonFacts}
+        setups={useSetupPayoffStore.getState().setups}
+        payoffs={useSetupPayoffStore.getState().payoffs}
+        selectedObject={selectedObject}
+        onClearSelection={() => setSelectedObject(null)}
+        onSelectCharacter={(id) => setSelectedCharId(id)}
       />
 
-      {/* Main Workspace Grid */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Collapsible Browser */}
-        <BrowserPanel
-          characters={characters}
-          scenes={scenes}
-          plotThreads={plotThreads}
-          canonFacts={canonFacts}
-          violations={violations}
-          relationships={relationships}
-          convergenceEvents={convergenceEvents}
-          selectedCharId={selectedCharId}
-          setSelectedCharId={setSelectedCharId}
-          selectedSceneId={selectedSceneId}
-          setSelectedSceneId={setSelectedSceneId}
-          isCollapsed={isBrowserCollapsed}
-          setIsCollapsed={setIsBrowserCollapsed}
-          onQuickAddCharacter={handleQuickAddCharacter}
-          onQuickAddScene={() => handleQuickAddScene()}
-          onQuickAddPlotThread={() => {}}
-          onQuickAddFact={() => handleAddFact('New story lore principle recorded.', 'Lore')}
-          onUpdateCharacter={handleUpdateCharacter}
-          onUpdateScene={handleSaveScene}
-          onUpdateLocation={handleUpdateLocation}
-        />
+      {/* Main Workspace Grid managed by DockManager */}
+      <DockManager
+        leftPanel={
+          <NarrativeNavigator
+            characters={characters}
+            scenes={scenes}
+            plotThreads={plotThreads}
+            canonFacts={canonFacts}
+            timelineEvents={timelineEvents}
+            relationships={relationships}
+            selectedObjectId={selectedObject?.id}
+            onSelectObject={(type, id, data) => {
+              setSelectedObject({ type, id, data });
+              if (type === 'character') {
+                setSelectedCharId(id);
+                setActiveWorkspace('CHARACTER');
+              }
+              if (type === 'scene') {
+                setSelectedSceneId(id);
+                setActiveWorkspace('WRITING_STUDIO');
+              }
+              if (type === 'plot_thread') {
+                setActiveWorkspace('PLANNING');
+              }
+              if (type === 'canon_fact') {
+                setActiveWorkspace('WORLDBUILDING');
+              }
+            }}
+            onNewObject={(type) => {
+              if (type === 'character') handleQuickAddCharacter();
+              if (type === 'scene') handleQuickAddScene();
+              if (type === 'canon_fact') handleAddFact('New story lore principle recorded.', 'Lore');
+            }}
+          />
+        }
+        centerCanvas={
+          <WorkspaceCanvas>
+            {/* WRITING WORKSPACE */}
+            {activeWorkspace === 'WRITING' && (
+              <div className="space-y-4">
+                <SceneEditorWorkstation
+                  scene={selectedScene}
+                  characters={characters}
+                  proposals={proposals}
+                  relationships={relationships}
+                  plotThreads={plotThreads}
+                  canonFacts={canonFacts}
+                  scenes={scenes}
+                  timelineEvents={timelineEvents}
+                  convergenceEvents={convergenceEvents}
+                  onSaveScene={handleSaveScene}
+                  onApproveProposal={handleApproveProposal}
+                  onOpenAiProposeModal={() => setIsAiDrawerOpen(true)}
+                  onOpenWritingStudio={(sc) => {
+                    useWritingStudioStore.getState().convertSceneToStudio(sc);
+                    setActiveWorkspace('WRITING_STUDIO');
+                  }}
+                />
+                <SceneBoard
+                  scenes={scenes}
+                  characters={characters}
+                  selectedSceneId={selectedSceneId}
+                  onSelectScene={(id) => {
+                    setSelectedSceneId(id);
+                    const sc = scenes.find(s => s.id === id);
+                    if (sc) setSelectedObject({ type: 'scene', id, data: sc });
+                  }}
+                  onNewScene={(padIdx) => handleQuickAddScene(padIdx)}
+                />
+              </div>
+            )}
 
-        {/* Center Workspace Canvas (Adapts to Workspace Preset Mode) */}
-        <main className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Preset 1: WRITING MODE (80% Scene Editor + 20% Character Context, Timeline Hidden) */}
-          {activePreset === 'WRITING' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-                {/* 80% Width: Scene Editor Workstation */}
-                <div className="lg:col-span-9 xl:col-span-9 space-y-4">
-                  <SceneEditorWorkstation
-                    scene={selectedScene}
-                    characters={characters}
-                    proposals={proposals}
-                    onSaveScene={handleSaveScene}
-                    onApproveProposal={handleApproveProposal}
-                    onOpenAiProposeModal={() => setIsAiDrawerOpen(true)}
-                  />
+            {/* DEDICATED WRITING STUDIO WORKSTATION */}
+            {activeWorkspace === 'WRITING_STUDIO' && (
+              <div className="h-full min-h-[82vh]">
+                <WritingStudioWindow
+                  characters={characters}
+                  plotThreads={plotThreads}
+                  locations={[]}
+                  scenes={scenes}
+                  onCloseWindow={() => setActiveWorkspace('WRITING')}
+                />
+              </div>
+            )}
+
+            {/* PLANNING WORKSPACE */}
+            {activeWorkspace === 'PLANNING' && (
+              <div className="space-y-4">
+                <PlotEvolutionWorkstation
+                  plotThreads={plotThreads}
+                  scenes={scenes}
+                  characters={characters}
+                  canonFacts={canonFacts}
+                  timelineEvents={timelineEvents}
+                  setups={useSetupPayoffStore.getState().setups}
+                  payoffs={useSetupPayoffStore.getState().payoffs}
+                  convergenceEvents={convergenceEvents}
+                  onUpdatePlotThread={handleUpdatePlotThread}
+                  onAddScene={(newScene) => {
+                    const newScenes = [newScene, ...scenes];
+                    setScenes(newScenes);
+                    syncStateToBackend({ scenes: newScenes }, `Created Scene: ${newScene.title}`);
+                  }}
+                  onAddTimelineEvent={(evt) => {
+                    const newEvts = [...timelineEvents, evt];
+                    setTimelineEvents(newEvts);
+                    syncStateToBackend({ timelineEvents: newEvts });
+                  }}
+                />
+                <TimelineObservatory
+                  events={timelineEvents}
+                  characters={characters}
+                  onUpdateEvents={handleUpdateTimelineEvents}
+                />
+                <ConvergenceMap
+                  plotThreads={plotThreads}
+                  convergenceEvents={convergenceEvents}
+                  onTriggerBackwardPlan={handleRunAudit}
+                />
+                <StructureIntelligence
+                  structureMilestones={structureMilestones}
+                  activeFramework={structureFramework}
+                  onUpdateStructure={handleUpdateStructure}
+                />
+                <SetupPayoffTracker
+                  plotThreads={plotThreads}
+                  scenes={scenes}
+                  characters={characters}
+                  canonFacts={canonFacts}
+                  currentChapter={23}
+                />
+              </div>
+            )}
+
+            {/* CONTINUITY WORKSPACE */}
+            {activeWorkspace === 'CONTINUITY' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+                  <div className="xl:col-span-6 space-y-4">
+                    <ContinuityMonitor
+                      continuityScore={project.continuityScore}
+                      violations={violations}
+                      characters={characters}
+                      onRunAudit={handleRunAudit}
+                      onResolveViolation={handleResolveViolation}
+                      onUpdateCharacter={updated => {
+                        const newChars = characters.map(c => c.id === updated.id ? updated : c);
+                        setCharacters(newChars);
+                        syncStateToBackend({ characters: newChars });
+                      }}
+                      isAuditing={isAuditing}
+                    />
+                  </div>
+                  <div className="xl:col-span-6 space-y-4">
+                    <CanonMemoryVault
+                      canonFacts={canonFacts}
+                      onAddFact={handleAddFact}
+                    />
+                  </div>
                 </div>
+                <TimelineObservatory
+                  events={timelineEvents}
+                  characters={characters}
+                  onUpdateEvents={handleUpdateTimelineEvents}
+                />
+              </div>
+            )}
 
-                {/* 20% Width: Character Context Drawer */}
-                <div className="lg:col-span-3 xl:col-span-3">
-                  <CharacterContextPanel
-                    scene={selectedScene}
-                    characters={characters}
-                    onSelectCharacter={setSelectedCharId}
-                  />
+            {/* WORLDBUILDING WORKSPACE */}
+            {activeWorkspace === 'WORLDBUILDING' && (
+              <div className="space-y-4">
+                <IntersectionMatrix characters={characters} />
+                <CanonMemoryVault
+                  canonFacts={canonFacts}
+                  onAddFact={handleAddFact}
+                />
+                <ConvergenceMap
+                  plotThreads={plotThreads}
+                  convergenceEvents={convergenceEvents}
+                  onTriggerBackwardPlan={handleRunAudit}
+                />
+              </div>
+            )}
+
+            {/* CHARACTER STUDIO WORKSPACE */}
+            {activeWorkspace === 'CHARACTER' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+                  <div className="xl:col-span-7 space-y-4">
+                    <CharacterIntelligence
+                      characters={characters}
+                      selectedCharId={selectedCharId}
+                      onSelectCharacter={(id) => {
+                        setSelectedCharId(id);
+                        const ch = characters.find(c => c.id === id);
+                        if (ch) setSelectedObject({ type: 'character', id, data: ch });
+                      }}
+                      onUpdateCharacter={handleUpdateCharacter}
+                      onAddCharacter={handleQuickAddCharacter}
+                    />
+                  </div>
+                  <div className="xl:col-span-5 space-y-4">
+                    <RelationshipWeb
+                      characters={characters}
+                      relationships={relationships}
+                      selectedCharId={selectedCharId}
+                      onSelectCharacter={setSelectedCharId}
+                      onAddRelationship={(newRel) => setRelationships(prev => [...prev, { ...newRel, id: 'rel_' + Date.now() }])}
+                      onUpdateRelationship={(updatedRel) => setRelationships(prev => prev.map(r => r.id === updatedRel.id ? updatedRel : r))}
+                    />
+                  </div>
                 </div>
               </div>
+            )}
 
-              {/* MPC Scene Pad Matrix (Sequencer Pads) */}
-              <MpcPadMatrix
-                scenes={scenes}
-                characters={characters}
-                selectedSceneId={selectedSceneId}
-                onSelectScene={setSelectedSceneId}
-                onNewSceneOnPad={padIdx => handleQuickAddScene(padIdx)}
-                soundEnabled={soundEnabled}
-              />
-            </div>
-          )}
-
-          {/* DYNAMIC NARRATIVE STATE ENGINE & SIMULATION DIRECTIVE */}
-          {activePreset === 'STATE_ENGINE' && (
-            <div className="space-y-4">
-              <DynamicStateEnginePanel
-                characters={characters}
-                scenes={scenes}
-                plotThreads={plotThreads}
-                canonFacts={canonFacts}
-                activeSceneId={selectedSceneId || undefined}
-                onCommitSimulationState={handleCommitSimulationState}
-              />
-            </div>
-          )}
-
-          {/* Phase 10: WRITER'S ROOM AI ADVISORY BOARD */}
-          {activePreset === 'WRITERS_ROOM' && (
-            <div className="space-y-4">
-              <WritersRoomPanel
-                scenes={scenes}
-                characters={characters}
-                canonFacts={canonFacts}
-                plotThreads={plotThreads}
-                selectedSceneId={selectedSceneId || undefined}
-                onSelectScene={(id) => setSelectedSceneId(id)}
-                onSaveScene={handleSaveScene}
-                onAddProposal={(proposal) => setProposals(prev => [proposal, ...prev])}
-              />
-              <SceneEditorWorkstation
-                scene={selectedScene}
-                characters={characters}
-                proposals={proposals}
-                onSaveScene={handleSaveScene}
-                onApproveProposal={handleApproveProposal}
-                onOpenAiProposeModal={() => setIsAiDrawerOpen(true)}
-              />
-            </div>
-          )}
-
-          {/* Phase 2 & 3 & 5 & 6: NARRATIVE CONSEQUENCE & SETUP/PAYOFF ENGINE */}
-          {activePreset === 'CONSEQUENCE' && (
-            <div className="space-y-4">
-              <ConsequenceEngine characters={characters} />
-              <SetupPayoffTracker
-                plotThreads={plotThreads}
-                scenes={scenes}
-                characters={characters}
-                canonFacts={canonFacts}
-                currentChapter={23}
-              />
-            </div>
-          )}
-
-          {/* Phase 7 & 8: INTERSECTION & ENSEMBLE NARRATIVE MATRIX */}
-          {activePreset === 'INTERSECTION' && (
-            <div className="space-y-4">
-              <IntersectionMatrix characters={characters} />
-              <ConvergenceMap
-                plotThreads={plotThreads}
-                convergenceEvents={convergenceEvents}
-                onTriggerBackwardPlan={handleRunAudit}
-              />
-            </div>
-          )}
-
-          {/* Phase 9: STORY STRUCTURE INTELLIGENCE */}
-          {activePreset === 'STRUCTURE' && (
-            <div className="space-y-4">
-              <StructureIntelligence
-                milestones={structureMilestones}
-                activeFramework={structureFramework}
-                onUpdateStructure={handleUpdateStructure}
-              />
-              <TimelineObservatory
-                events={timelineEvents}
-                characters={characters}
-                onUpdateEvents={handleUpdateTimelineEvents}
-              />
-            </div>
-          )}
-
-          {/* Phase 11: OFF-SCREEN UNIVERSE BACKGROUND SIMULATOR */}
-          {activePreset === 'OFFSCREEN_SIM' && (
-            <div className="space-y-4">
-              <OffscreenSimulator characters={characters} />
-              <CharacterIntelligence
-                characters={characters}
-                selectedCharId={selectedCharId}
-                onSelectCharacter={setSelectedCharId}
-                onUpdateCharacter={handleUpdateCharacter}
-                onAddCharacter={handleQuickAddCharacter}
-              />
-            </div>
-          )}
-
-          {/* Preset 2: CHARACTER DESIGN MODE (Character Inspector, Arc Progression & Relationship Matrix) */}
-          {activePreset === 'CHARACTER' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-                {/* Character Inspector & Arc Progression */}
-                <div className="xl:col-span-7 space-y-4">
-                  <CharacterIntelligence
-                    characters={characters}
-                    selectedCharId={selectedCharId}
-                    onSelectCharacter={setSelectedCharId}
-                    onUpdateCharacter={handleUpdateCharacter}
-                    onAddCharacter={handleQuickAddCharacter}
-                  />
-                </div>
-
-                {/* Relationship Matrix & Web */}
-                <div className="xl:col-span-5 space-y-4">
-                  <RelationshipWeb
-                    characters={characters}
-                    relationships={relationships}
-                    selectedCharId={selectedCharId}
-                    onSelectCharacter={setSelectedCharId}
-                    onAddRelationship={() => {}}
-                  />
-                </div>
+            {/* SIMULATION WORKSPACE */}
+            {activeWorkspace === 'SIMULATION' && (
+              <div className="space-y-4">
+                <DynamicStateEnginePanel
+                  characters={characters}
+                  scenes={scenes}
+                  plotThreads={plotThreads}
+                  canonFacts={canonFacts}
+                  activeSceneId={selectedSceneId || undefined}
+                  onCommitSimulationState={handleCommitSimulationState}
+                />
+                <OffscreenSimulator characters={characters} />
+                <ConsequenceEngine characters={characters} />
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Preset 3: CONTINUITY MODE (Violations Panel, Canon Search & Timeline Observatory) */}
-          {activePreset === 'CONTINUITY' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-                {/* Prominent Violations Panel */}
-                <div className="xl:col-span-6 space-y-4">
-                  <ContinuityMonitor
-                    continuityScore={project.continuityScore}
-                    violations={violations}
-                    characters={characters}
-                    onRunAudit={handleRunAudit}
-                    onResolveViolation={handleResolveViolation}
-                    onUpdateCharacter={updated => {
-                      const newChars = characters.map(c => c.id === updated.id ? updated : c);
-                      setCharacters(newChars);
-                      syncStateToBackend({ characters: newChars });
-                    }}
-                    isAuditing={isAuditing}
-                  />
-                </div>
-
-                {/* Canon Search & Vault */}
-                <div className="xl:col-span-6 space-y-4">
-                  <CanonMemoryVault
-                    canonFacts={canonFacts}
-                    onAddFact={handleAddFact}
-                  />
-                </div>
+            {/* CUSTOM WORKSPACE */}
+            {activeWorkspace === 'CUSTOM' && (
+              <div className="space-y-4">
+                <WritersRoomPanel
+                  scenes={scenes}
+                  characters={characters}
+                  canonFacts={canonFacts}
+                  plotThreads={plotThreads}
+                  selectedSceneId={selectedSceneId || undefined}
+                  onSelectScene={(id) => setSelectedSceneId(id)}
+                  onSaveScene={handleSaveScene}
+                  onAddProposal={(proposal) => setProposals(prev => [proposal, ...prev])}
+                />
+                <SceneBoard
+                  scenes={scenes}
+                  characters={characters}
+                  selectedSceneId={selectedSceneId}
+                  onSelectScene={(id) => setSelectedSceneId(id)}
+                  onNewScene={(padIdx) => handleQuickAddScene(padIdx)}
+                />
               </div>
+            )}
+          </WorkspaceCanvas>
+        }
+      />
 
-              {/* Timeline Observatory for Canon Verification */}
-              <TimelineObservatory
-                events={timelineEvents}
-                characters={characters}
-                onUpdateEvents={handleUpdateTimelineEvents}
-              />
-            </div>
-          )}
-
-          {/* Preset 4: PLANNING MODE (Timeline Observatory & Convergence Map) */}
-          {activePreset === 'PLANNING' && (
-            <div className="space-y-4">
-              <TimelineObservatory
-                events={timelineEvents}
-                characters={characters}
-                onUpdateEvents={handleUpdateTimelineEvents}
-              />
-              <ConvergenceMap
-                plotThreads={plotThreads}
-                convergenceEvents={convergenceEvents}
-                onTriggerBackwardPlan={handleRunAudit}
-              />
-            </div>
-          )}
-
-          {/* Preset 5: MPC PADS SEQUENCER MODE */}
-          {activePreset === 'MPC_GRID' && (
-            <div className="space-y-4">
-              <MpcPadMatrix
-                scenes={scenes}
-                characters={characters}
-                selectedSceneId={selectedSceneId}
-                onSelectScene={setSelectedSceneId}
-                onNewSceneOnPad={padIdx => handleQuickAddScene(padIdx)}
-                soundEnabled={soundEnabled}
-              />
-              <SceneEditorWorkstation
-                scene={selectedScene}
-                characters={characters}
-                proposals={proposals}
-                onSaveScene={handleSaveScene}
-                onApproveProposal={handleApproveProposal}
-                onOpenAiProposeModal={() => setIsAiDrawerOpen(true)}
-              />
-            </div>
-          )}
-        </main>
-      </div>
-
-      {/* Bottom Track Sequencer & Mixer Deck */}
-      <BottomTrackMixer
-        plotThreads={plotThreads}
-        scenes={scenes}
-        selectedSceneId={selectedSceneId}
-        onSelectScene={setSelectedSceneId}
+      {/* Persistent Telemetry Status Dock */}
+      <StatusDock
+        characterCount={characters.length}
+        sceneCount={scenes.length}
+        threadCount={plotThreads.length}
+        canonCount={canonFacts.length}
+        memoryCount={characters.reduce((acc, c) => acc + (c.memories?.length || 0), 0)}
+        warningCount={violations.filter(v => !v.resolved).length}
+        simulationStatus={isAiLoading ? 'Simulating' : 'Ready'}
+        keepConnected={true}
+        onOpenTool={(tool) => setActiveWorkspace(tool as WorkspaceMode)}
+        onOpenKeepWorkspace={() => setIsKeepOpen(true)}
+        onRunAudit={handleRunAudit}
       />
 
       {/* AI Proposal Drawer Modal */}
@@ -784,15 +953,116 @@ export default function App() {
         isLoading={isAiLoading}
       />
 
+      
+      <ChatbotDrawer 
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        projectState={{ project, characters, relationships, plotThreads, scenes, timelineEvents, canonFacts, violations, structureMilestones }}
+      />
+
       {/* Guided Tutorial Overlay with Instruction Bubbles */}
       <GuidedTutorial
         isOpen={isTutorialOpen}
         onClose={() => setIsTutorialOpen(false)}
-        activePreset={activePreset}
-        setActivePreset={setActivePreset}
+        activeWorkspace={activeWorkspace}
+        setActiveWorkspace={setActiveWorkspace}
         onOpenAiDrawer={() => setIsAiDrawerOpen(true)}
         onRunAudit={handleRunAudit}
       />
+
+      {/* Google Keep Workspace Drawer & Modal */}
+      <GoogleKeepWorkspace
+        isOpen={isKeepOpen}
+        onClose={() => setIsKeepOpen(false)}
+        setups={useSetupPayoffStore.getState().setups}
+        payoffs={useSetupPayoffStore.getState().payoffs}
+        canonFacts={canonFacts}
+        plotThreads={plotThreads}
+        scenes={scenes}
+      />
+
+      {/* Mobile Navigator Drawer Overlay */}
+      {isMobileNavOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex md:hidden">
+          <div className="w-80 max-w-[85vw] bg-[#0F172A] p-4 h-full border-r border-[#1E293B] overflow-y-auto">
+            <div className="flex justify-between items-center mb-3 pb-2 border-b border-[#1E293B]">
+              <span className="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono">Narrative Navigator</span>
+              <button
+                onClick={() => setIsMobileNavOpen(false)}
+                className="text-slate-400 hover:text-white text-xs px-2 py-1 bg-[#1E293B] rounded font-mono"
+              >
+                Close
+              </button>
+            </div>
+            <NarrativeNavigator
+              characters={characters}
+              scenes={scenes}
+              plotThreads={plotThreads}
+              canonFacts={canonFacts}
+              timelineEvents={timelineEvents}
+              relationships={relationships}
+              selectedObjectId={selectedObject?.id}
+              onSelectObject={(type, id, data) => {
+                setSelectedObject({ type, id, data });
+                if (type === 'character') {
+                  setSelectedCharId(id);
+                  setActiveWorkspace('CHARACTER');
+                }
+                if (type === 'scene') {
+                  setSelectedSceneId(id);
+                  setActiveWorkspace('WRITING_STUDIO');
+                }
+                if (type === 'plot_thread') setActiveWorkspace('PLANNING');
+                if (type === 'canon_fact') setActiveWorkspace('WORLDBUILDING');
+                setIsMobileNavOpen(false);
+              }}
+              onNewObject={(type) => {
+                if (type === 'character') handleQuickAddCharacter();
+                if (type === 'scene') handleQuickAddScene();
+                if (type === 'canon_fact') handleAddFact('New story lore principle recorded.', 'Lore');
+                setIsMobileNavOpen(false);
+              }}
+            />
+          </div>
+          <div className="flex-1" onClick={() => setIsMobileNavOpen(false)} />
+        </div>
+      )}
+
+      
+
+      {/* Automated Diagnostics & Testing Harness Console */}
+      <TestingHarnessModal
+        isOpen={isTestHarnessOpen}
+        onClose={() => setIsTestHarnessOpen(false)}
+        scenes={scenes}
+        characters={characters}
+        plotThreads={plotThreads}
+        canonFacts={canonFacts}
+        timelineEvents={timelineEvents}
+        setups={useSetupPayoffStore.getState().setups}
+        payoffs={useSetupPayoffStore.getState().payoffs}
+      />
+
+      {/* Audit Trail & Sync Engine Drawer */}
+      <AuditTrailDrawer
+        isOpen={isAuditTrailOpen}
+        onClose={() => setIsAuditTrailOpen(false)}
+        onApplyRestoredState={handleApplyRestoredState}
+        currentStateSnapshot={{
+          project,
+          characters,
+          relationships,
+          plotThreads,
+          convergenceEvents,
+          scenes,
+          timelineEvents,
+          canonFacts,
+          violations,
+          structureMilestones,
+          structureFramework
+        }}
+      />
     </div>
+    </>
   );
 }
